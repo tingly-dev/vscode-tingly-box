@@ -1,8 +1,10 @@
 # Tingly Box For VSCode
 
-**Tinlgy Box For VS Code** connects VS Code Chat to [Tingly Box](https://github.com/tingly-dev/tingly-box) for a unified AI experience, or use standalone with OpenAI, Anthropic, and any OpenAI/Anthropic-compatible APIs.
+**Tingly Box For VS Code** — Orchestrate your Copilot Chat with custom AI models powered by **Tingly Box**, or use standalone with OpenAI, Anthropic, and any compatible providers.
 
 > Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
+> 
+> https://github.com/tingly-dev/tingly-box
 
 ![screen-shot](./resource/screenshot.chat.png)
 ![screen-shot](./resource/screenshot.inline.png)
