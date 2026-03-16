@@ -41,29 +41,13 @@ export class SettingsManager {
       }))
     );
 
-    // Add option to add a new provider (for future extensibility)
-    items.push({
-      label: 'Learn more about providers',
-      description: '$(info) Documentation',
-      providerId: 'learn-more',
-      provider: null as any,
-    });
-
     const selected = await vscode.window.showQuickPick(items, {
       placeHolder: 'Select a provider to configure',
-      title: 'Tingly Box - Provider Settings',
+      title: 'Tingly Box VSCode - Provider Settings',
     });
 
     if (!selected) {
       return; // User cancelled
-    }
-
-    if (selected.providerId === 'learn-more') {
-      // Open documentation (placeholder)
-      vscode.env.openExternal(
-        vscode.Uri.parse('https://github.com/your-repo/vscode-tingly-box#configuration')
-      );
-      return;
     }
 
     await this.configureProvider(selected.providerId, selected.provider);
@@ -77,8 +61,8 @@ export class SettingsManager {
 
     // Show options for this provider
     const actions = hasConfig
-      ? ['Update API Key', 'Remove API Key', 'Cancel']
-      : ['Add API Key', 'Cancel'];
+      ? ['Update Configuration', 'Remove Configuration', 'Cancel']
+      : ['Add Configuration', 'Cancel'];
 
     const action = await vscode.window.showQuickPick(actions, {
       placeHolder: `Manage ${provider.displayName} configuration`,
@@ -89,72 +73,97 @@ export class SettingsManager {
     }
 
     switch (action) {
-      case 'Add API Key':
-      case 'Update API Key':
-        await this.promptForApiKey(providerId, provider);
+      case 'Add Configuration':
+      case 'Update Configuration':
+        await this.promptForConfiguration(providerId, provider);
         break;
 
-      case 'Remove API Key':
-        await this.removeApiKey(providerId, provider);
+      case 'Remove Configuration':
+        await this.removeConfiguration(providerId, provider);
         break;
     }
   }
 
   /**
-   * Prompt user to enter API key
+   * Prompt user to enter base URL and token
    */
-  private async promptForApiKey(providerId: string, provider: any): Promise<void> {
-    const apiKey = await vscode.window.showInputBox({
-      prompt: `Enter your ${provider.displayName} API key`,
-      password: true,
-      placeHolder: this.getPlaceholderForKey(providerId),
+  private async promptForConfiguration(providerId: string, provider: any): Promise<void> {
+    // Step 1: Get base URL
+    const currentConfig = await this.config.getProviderConfig(providerId);
+    const baseUrl = await vscode.window.showInputBox({
+      prompt: 'Enter your API Base URL (e.g., https://api.openai.com/v1)',
+      placeHolder: 'https://api.openai.com/v1',
+      value: currentConfig?.baseUrl || '',
       validateInput: (value) => {
-        if (!value || value.length === 0) {
-          return 'API key cannot be empty';
+        if (!value || value.trim().length === 0) {
+          return 'Base URL cannot be empty';
         }
 
-        // Basic validation
-        if (providerId === 'openai' && !value.startsWith('sk-')) {
-          return 'OpenAI API keys must start with "sk-"';
+        try {
+          const url = new URL(value.trim());
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            return 'URL must use http or https protocol';
+          }
+          return null;
+        } catch {
+          return 'Invalid URL format';
+        }
+      },
+    });
+
+    if (!baseUrl) {
+      return; // User cancelled
+    }
+
+    // Step 2: Get token
+    const token = await vscode.window.showInputBox({
+      prompt: 'Enter your API Token',
+      password: true,
+      placeHolder: 'sk-... or Bearer token',
+      value: '',
+      validateInput: (value) => {
+        if (!value || value.trim().length === 0) {
+          return 'Token cannot be empty';
         }
 
-        if (providerId === 'anthropic' && !value.startsWith('sk-ant-')) {
-          return 'Anthropic API keys must start with "sk-ant-"';
-        }
-
-        if (value.length < 20) {
-          return 'API key appears to be too short';
+        if (value.trim().length < 10) {
+          return 'Token appears to be too short';
         }
 
         return null;
       },
     });
 
-    if (!apiKey) {
+    if (!token) {
       return; // User cancelled
     }
 
+    // Save configuration
     try {
-      await this.config.setApiKey(providerId, apiKey);
+      await this.config.setProviderConfig(providerId, {
+        baseUrl: baseUrl.trim(),
+        token: token.trim(),
+      });
+
       vscode.window.showInformationMessage(
-        `${provider.displayName} API key saved successfully.`
+        `${provider.displayName} configuration saved successfully.`
       );
       this.output.appendLine(
-        `[Settings] API key saved for ${provider.displayName}`
+        `[Settings] Configuration saved for ${provider.displayName}`
       );
     } catch (error) {
       vscode.window.showErrorMessage(
-        `Failed to save API key: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to save configuration: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
   /**
-   * Remove API key for a provider
+   * Remove configuration for a provider
    */
-  private async removeApiKey(providerId: string, provider: any): Promise<void> {
+  private async removeConfiguration(providerId: string, provider: any): Promise<void> {
     const confirmed = await vscode.window.showWarningMessage(
-      `Are you sure you want to remove the ${provider.displayName} API key?`,
+      `Are you sure you want to remove the ${provider.displayName} configuration?`,
       { modal: true },
       'Remove',
       'Cancel'
@@ -165,31 +174,17 @@ export class SettingsManager {
     }
 
     try {
-      await this.config.removeApiKey(providerId);
+      await this.config.removeProviderConfig(providerId);
       vscode.window.showInformationMessage(
-        `${provider.displayName} API key has been removed.`
+        `${provider.displayName} configuration has been removed.`
       );
       this.output.appendLine(
-        `[Settings] API key removed for ${provider.displayName}`
+        `[Settings] Configuration removed for ${provider.displayName}`
       );
     } catch (error) {
       vscode.window.showErrorMessage(
-        `Failed to remove API key: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to remove configuration: ${error instanceof Error ? error.message : String(error)}`
       );
-    }
-  }
-
-  /**
-   * Get placeholder text for API key input
-   */
-  private getPlaceholderForKey(providerId: string): string {
-    switch (providerId) {
-      case 'openai':
-        return 'sk-...';
-      case 'anthropic':
-        return 'sk-ant-...';
-      default:
-        return 'Enter API key';
     }
   }
 
@@ -204,12 +199,18 @@ export class SettingsManager {
       return;
     }
 
-    let message = 'Tingly Box Provider Status:\n\n';
+    let message = 'Tingly Box VSCode - Provider Status:\n\n';
 
     for (const provider of providers) {
-      const configured = await this.config.hasConfiguredProvider(provider.id);
-      const status = configured ? '$(check) Configured' : '$(circle-large-outline) Not configured';
-      message += `${provider.displayName}: ${status}\n`;
+      const config = await this.config.getProviderConfig(provider.id);
+      if (config) {
+        // Show partial URL for privacy
+        const url = new URL(config.baseUrl);
+        const host = url.hostname;
+        message += `${provider.displayName}: $(check) Configured (${host})\n`;
+      } else {
+        message += `${provider.displayName}: $(circle-large-outline) Not configured\n`;
+      }
     }
 
     vscode.window.showInformationMessage(message, { modal: true });

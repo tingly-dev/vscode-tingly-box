@@ -6,24 +6,22 @@
  * Provider configuration stored in SecretStorage
  */
 export interface ProviderConfig {
-  /** API key for the provider */
-  apiKey: string;
-  /** Base URL for API (optional, for custom endpoints) */
-  baseUrl?: string;
-  /** Default model for this provider */
-  defaultModel?: string;
+  /** API token/key for the provider */
+  token: string;
+  /** Base URL for API (required for custom endpoints) */
+  baseUrl: string;
 }
 
 /**
  * Model information metadata
  */
 export interface ModelInfo {
-  /** Unique model identifier (e.g., 'openai:gpt-4o') */
+  /** Unique model identifier (e.g., 'default:gpt-4o') */
   id: string;
   /** Display name shown in UI */
   name: string;
   /** Provider name */
-  provider: 'openai' | 'anthropic';
+  provider: string;
   /** Model family (e.g., 'gpt-4', 'claude-3') */
   family: string;
   /** Version string */

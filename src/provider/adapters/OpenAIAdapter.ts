@@ -1,6 +1,6 @@
 /**
- * OpenAI provider adapter
- * Implements chat functionality using OpenAI's API
+ * OpenAI-compatible provider adapter
+ * Implements chat functionality using OpenAI-compatible APIs
  */
 
 import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
@@ -28,13 +28,11 @@ interface OpenAIChatResponse {
 }
 
 /**
- * Adapter for OpenAI API
+ * Adapter for OpenAI-compatible APIs
  */
 export class OpenAIAdapter extends BaseProviderAdapter {
-  readonly id = 'openai';
-  readonly displayName = 'OpenAI';
-
-  private readonly API_URL = 'https://api.openai.com/v1/chat/completions';
+  readonly id = 'default';
+  readonly displayName = 'Tingly Box VSCode';
 
   private configManager?: ConfigManager;
 
@@ -46,13 +44,13 @@ export class OpenAIAdapter extends BaseProviderAdapter {
   }
 
   /**
-   * Available OpenAI models
+   * Available models (common OpenAI-compatible models)
    */
   private readonly MODELS: ModelInfo[] = [
     {
-      id: 'openai:gpt-4o',
+      id: 'default:gpt-4o',
       name: 'GPT-4o',
-      provider: 'openai',
+      provider: 'default',
       family: 'gpt-4',
       version: '2024-05-13',
       maxInputTokens: 128000,
@@ -63,9 +61,9 @@ export class OpenAIAdapter extends BaseProviderAdapter {
       },
     },
     {
-      id: 'openai:gpt-4o-mini',
+      id: 'default:gpt-4o-mini',
       name: 'GPT-4o Mini',
-      provider: 'openai',
+      provider: 'default',
       family: 'gpt-4',
       version: '2024-05-13',
       maxInputTokens: 128000,
@@ -75,14 +73,27 @@ export class OpenAIAdapter extends BaseProviderAdapter {
       },
     },
     {
-      id: 'openai:gpt-3.5-turbo',
+      id: 'default:gpt-3.5-turbo',
       name: 'GPT-3.5 Turbo',
-      provider: 'openai',
+      provider: 'default',
       family: 'gpt-3.5',
       version: '2023-11-06',
       maxInputTokens: 16385,
       maxOutputTokens: 4096,
       capabilities: {
+        toolCalling: true,
+      },
+    },
+    {
+      id: 'default:claude-3-5-sonnet',
+      name: 'Claude 3.5 Sonnet',
+      provider: 'default',
+      family: 'claude-3',
+      version: '2024-06-20',
+      maxInputTokens: 200000,
+      maxOutputTokens: 8192,
+      capabilities: {
+        imageInput: true,
         toolCalling: true,
       },
     },
@@ -103,21 +114,26 @@ export class OpenAIAdapter extends BaseProviderAdapter {
       throw new Error('ConfigManager not initialized');
     }
 
-    const apiKey = await this.configManager.getApiKey('openai');
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured. Please run "Tingly Box: Manage Settings" to configure.');
+    const config = await this.configManager.getProviderConfig('default');
+    if (!config) {
+      throw new Error(
+        'Tingly Box VSCode not configured. Please run "Tingly Box: Manage Settings" to configure.'
+      );
     }
 
-    // Extract model name (remove 'openai:' prefix if present)
+    // Extract model name (remove 'default:' prefix if present)
     const modelName = model.includes(':') ? model.split(':')[1] : model;
 
     const requestBody = this.formatRequest(modelName, messages, options);
 
+    // Build API URL from base URL
+    const apiUrl = new URL('/chat/completions', config.baseUrl).toString();
+
     try {
-      const response = await fetch(this.API_URL, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${config.token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
@@ -158,7 +174,8 @@ export class OpenAIAdapter extends BaseProviderAdapter {
   }
 
   protected validateApiKey(key: string): boolean {
-    return key.startsWith('sk-') && key.length >= 40;
+    // Accept any token format since users provide custom endpoints
+    return key.length >= 10;
   }
 
   protected formatRequest(

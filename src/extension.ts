@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register the language model provider with VSCode
     const providerRegistration = vscode.lm.registerLanguageModelChatProvider(
-      'tingly-box',
+      'tinglybox-vscode',
       provider
     );
     context.subscriptions.push(providerRegistration);

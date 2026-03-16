@@ -28,52 +28,31 @@
   "contributes": {
     "languageModelChatProviders": [
       {
-        "vendor": "tingly-box",
-        "displayName": "Tingly Box",
+        "vendor": "tinglybox-vscode",
+        "displayName": "Tingly Box VSCode",
         "managementCommand": "tinglybox.manage"
       }
     ],
     "commands": [
       {
         "command": "tinglybox.manage",
-        "title": "Tingly Box: Manage Settings",
+        "title": "Tingly Box VSCode: Manage Settings",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.status",
-        "title": "Tingly Box: Show Provider Status",
+        "title": "Tingly Box VSCode: Show Provider Status",
         "category": "Tingly Box"
       }
     ],
     "configuration": {
-      "title": "Tingly Box",
+      "title": "Tingly Box VSCode",
       "properties": {
-        "tinglybox.defaultProvider": {
-          "type": "string",
-          "enum": ["openai"],
-          "default": "openai",
-          "description": "Default AI provider to use",
-          "order": 1
-        },
-        "tinglybox.defaultModel": {
-          "type": "string",
-          "default": "openai:gpt-4o-mini",
-          "description": "Default model to use (format: providerId:modelName)",
-          "order": 2
-        },
-        "tinglybox.temperature": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 2,
-          "default": 0.7,
-          "description": "Default temperature for responses (0.0 - 2.0)",
-          "order": 3
-        },
         "tinglybox.debug": {
           "type": "boolean",
           "default": false,
           "description": "Enable debug logging in output channel",
-          "order": 99
+          "order": 1
         }
       }
     }
