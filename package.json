@@ -7,6 +7,9 @@
   "engines": {
     "vscode": "^1.104.0"
   },
+  "repository": {
+    "url": "https://github.com/tingly-dev/vscode-tingly-box"
+  },
   "categories": [
     "Machine Learning",
     "Other"
@@ -30,7 +33,9 @@
       {
         "vendor": "tinglybox-vscode",
         "displayName": "Tingly Box VSCode",
-        "managementCommand": "tinglybox.manage"
+        "configuration": {
+          "command": "tinglybox.manage"
+        }
       }
     ],
     "commands": [
