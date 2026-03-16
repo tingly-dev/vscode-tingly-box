@@ -1,6 +1,7 @@
 # Tingly Box For VSCode
 
-**Tingly Box For VS Code** — Orchestrate your Copilot Chat with custom AI models powered by **Tingly Box**, or use standalone with OpenAI, Anthropic, and any compatible providers.
+Orchestrate your **Copilot Chat** with custom AI models powered by **Tingly Box**, 
+or use standalone with OpenAI, Anthropic, and any compatible providers.
 
 > Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
 > 
