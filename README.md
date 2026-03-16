@@ -1,6 +1,6 @@
 # Tingly Box For VSCode
 
-Tinlgy Box VSCode Extension, connect VS Code Chat to [Tingly Box](https://github.com/tingly-dev/tingly-box) for a unified AI experience, or use standalone with OpenAI, Anthropic, and any OpenAI/Anthropic-compatible APIs.
+**Tinlgy Box For VS Code** connects VS Code Chat to [Tingly Box](https://github.com/tingly-dev/tingly-box) for a unified AI experience, or use standalone with OpenAI, Anthropic, and any OpenAI/Anthropic-compatible APIs.
 
 > Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
 
@@ -11,6 +11,10 @@ Tinlgy Box VSCode Extension, connect VS Code Chat to [Tingly Box](https://github
 
 ### Works with Tingly Box
 This extension is designed to integrate seamlessly with [Tingly Box](https://github.com/tingly-dev/tingly-box) — your AI intelligence orchestration platform. Together, they provide a unified AI experience for solo builders and dev teams.
+
+- **One-Click Server Control** — Start and stop Tingly Box server directly from the extension
+- **Automatic Setup** — Built-in server management for hassle-free configuration
+- **Unified AI Experience** — Connect to Tingly Box for orchestrated AI capabilities
 
 ### Standalone Capabilities
 Works perfectly on its own too:
@@ -29,15 +33,14 @@ Works perfectly on its own too:
 
 ### Using with Tingly Box (Recommended)
 
-1. Install and start [Tingly Box](https://github.com/tingly-dev/tingly-box):
-   ```bash
-   npx tingly-box@latest
-   ```
-2. Install the VSCode extension
-3. Click the status bar item or run `Tingly Box: Manage Settings`
+1. Install the VSCode extension
+2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box: Manage Settings`
+3. In the **"Using with Tingly Box"** tab, click **"🚀 Start"** to launch the Tingly Box server
 4. Enter your Tingly Box URL (default: `http://localhost:12580/tingly/openai`)
 5. Select your API Style (OpenAI or Anthropic — either works with Tingly Box)
 6. Save and start chatting!
+
+> **Note**: You can also start Tingly Box manually by running `npx tingly-box@latest` in your terminal.
 
 ### Using with Custom Providers
 
@@ -57,6 +60,8 @@ Works perfectly on its own too:
 | Command                                   | Description                              |
 | ----------------------------------------- | ---------------------------------------- |
 | `Tingly Box: Manage Settings`             | Open configuration webview               |
+| `Tingly Box: Start Server`                | Start Tingly Box server                  |
+| `Tingly Box: Stop Server`                 | Stop Tingly Box server                   |
 | `Tingly Box: Show Status`                 | View current connection status           |
 | `Tingly Box: Fetch Models`                | Refresh available models from API        |
 | `Tingly Box: Manage Language Models`      | Open VSCode's language model management  |
