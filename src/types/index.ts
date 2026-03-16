@@ -1,0 +1,105 @@
+/**
+ * Shared TypeScript type definitions for VSCode Tingly Box extension
+ */
+
+/**
+ * Provider configuration stored in SecretStorage
+ */
+export interface ProviderConfig {
+  /** API key for the provider */
+  apiKey: string;
+  /** Base URL for API (optional, for custom endpoints) */
+  baseUrl?: string;
+  /** Default model for this provider */
+  defaultModel?: string;
+}
+
+/**
+ * Model information metadata
+ */
+export interface ModelInfo {
+  /** Unique model identifier (e.g., 'openai:gpt-4o') */
+  id: string;
+  /** Display name shown in UI */
+  name: string;
+  /** Provider name */
+  provider: 'openai' | 'anthropic';
+  /** Model family (e.g., 'gpt-4', 'claude-3') */
+  family: string;
+  /** Version string */
+  version: string;
+  /** Maximum input tokens */
+  maxInputTokens: number;
+  /** Maximum output tokens */
+  maxOutputTokens: number;
+  /** Model capabilities */
+  capabilities: {
+    /** Supports image inputs */
+    imageInput?: boolean;
+    /** Supports function/tool calling */
+    toolCalling?: boolean | number;
+  };
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Provider-agnostic message format
+ */
+export interface ProviderMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string | Array<TextPart | ImagePart>;
+}
+
+/**
+ * Text part in a message
+ */
+export interface TextPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * Image part in a message
+ */
+export interface ImagePart {
+  type: 'image';
+  data: string; // base64 or URL
+}
+
+/**
+ * Chat request options
+ */
+export interface ChatOptions {
+  /** Sampling temperature (0-2) */
+  temperature?: number;
+  /** Maximum tokens to generate */
+  maxTokens?: number;
+  /** Stop sequences */
+  stop?: string[];
+  /** Additional provider-specific options */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * OpenAI-specific message format
+ */
+export interface OpenAIMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+/**
+ * API error with status code
+ */
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly code?: string,
+    public readonly headers?: Record<string, string>
+  ) {
+    super(message);
+    this.name = 'APIError';
+  }
+}
