@@ -4,7 +4,8 @@ Tinlgy Box VSCode Extension, connect VS Code Chat to [Tingly Box](https://github
 
 > Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
 
-![screen-shot](./resource/ScreenShot.png)
+![screen-shot](./resource/screenshot.chat.png)
+![screen-shot](./resource/screenshot.inline.png)
 
 ## Features
 
