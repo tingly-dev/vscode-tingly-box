@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
           }
 
           // Fetch models
-          const models = await (unifiedAdapter as any).fetchModels();
+          const models = await unifiedAdapter.getModels();
 
           output.appendLine(`[Tingly Box] Successfully fetched ${models.length} models:`);
           for (const model of models) {
@@ -187,7 +187,7 @@ export function activate(context: vscode.ExtensionContext) {
 
           try {
             output.appendLine('[Tingly Box] Fetching models...');
-            const models = await (unifiedAdapter as any).fetchModels();
+            const models = await unifiedAdapter.getModels();
             output.appendLine(`[Tingly Box] Loaded ${models.length} models`);
             for (const model of models) {
               output.appendLine(`  - ${model.name}`);
