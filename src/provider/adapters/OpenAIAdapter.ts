@@ -40,8 +40,9 @@ interface OpenAIChatResponse {
  * Adapter for OpenAI-compatible APIs
  */
 export class OpenAIAdapter extends BaseAPIAdapter {
-  readonly id = 'openai';
-  readonly displayName = 'OpenAI-Compatible';
+  readonly id = 'default';
+  readonly apiStyle = 'openai' as const;
+  readonly displayName = 'Tingly Box (OpenAI Style)';
 
   /**
    * Fetch models from remote API

@@ -64,6 +64,11 @@
         "command": "tinglybox.manageLanguageModels",
         "title": "Tingly Box: Manage Language Models",
         "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.resetConfig",
+        "title": "Tingly Box: Reset Configuration",
+        "category": "Tingly Box"
       }
     ],
     "configuration": {

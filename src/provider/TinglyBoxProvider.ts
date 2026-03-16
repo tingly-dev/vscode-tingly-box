@@ -84,8 +84,14 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
           const providerModels = await provider.getModels();
 
           for (const model of providerModels) {
-            models.push(this.toVSCodeModelInfo(model));
-            this.output.appendLine(`[Provider] Found model: ${model.name} (${model.id})`);
+            const modelInfo = this.toVSCodeModelInfo(model);
+            // Skip if model with same ID already exists (deduplication)
+            if (!models.some(m => m.id === modelInfo.id)) {
+              models.push(modelInfo);
+              this.output.appendLine(`[Provider] Found model: ${model.name} (${model.id})`);
+            } else {
+              this.output.appendLine(`[Provider] Skipping duplicate model: ${model.name} (${model.id})`);
+            }
           }
         } catch (error) {
           this.output.appendLine(
@@ -94,7 +100,7 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
         }
       }
 
-      this.output.appendLine(`[Provider] Returning ${models.length} models`);
+      this.output.appendLine(`[Provider] Returning ${models.length} unique models`);
 
       // Cache the models for future calls
       if (models.length > 0) {

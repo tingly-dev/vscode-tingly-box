@@ -216,4 +216,27 @@ export class ConfigManager extends EventEmitter {
     // Emit configuration change event
     this.emit(ConfigManager.CONFIG_CHANGED, { providerId, action: 'set' });
   }
+
+  /**
+   * Clear all Tingly Box configuration from storage
+   * Deletes all SecretStorage keys with the 'tinglybox.' prefix
+   */
+  async clearAllConfig(): Promise<void> {
+    this.log('Clearing all Tingly Box configuration...');
+
+    // Known keys to delete
+    const keysToDelete = [
+      `${ConfigManager.STORAGE_PREFIX}default.token`,
+      `${ConfigManager.STORAGE_PREFIX}default.baseUrl`,
+      `${ConfigManager.STORAGE_PREFIX}default.apiStyle`,
+    ];
+
+    // Delete all known keys
+    await Promise.all(keysToDelete.map(key => this.secrets.delete(key)));
+
+    this.log('All configuration cleared');
+
+    // Emit configuration change event for default provider
+    this.emit(ConfigManager.CONFIG_CHANGED, { providerId: 'default', action: 'remove' });
+  }
 }

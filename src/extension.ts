@@ -7,8 +7,7 @@ import { ConfigManager } from './config/ConfigManager.js';
 import { SettingsManager } from './config/SettingsManager.js';
 import { StatusBarManager } from './config/StatusBarManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
-import { OpenAIAdapter } from './provider/adapters/OpenAIAdapter.js';
-import { AnthropicAdapter } from './provider/adapters/AnthropicAdapter.js';
+import { UnifiedAdapter } from './provider/adapters/UnifiedAdapter.js';
 import { ErrorHandler } from './utils/ErrorHandler.js';
 
 /**
@@ -24,14 +23,10 @@ export function activate(context: vscode.ExtensionContext) {
   output.appendLine('[Tingly Box] Extension activated');
 
   try {
-    // Initialize and register providers
-    const openAIAdapter = new OpenAIAdapter();
-    ProviderRegistry.register(openAIAdapter);
-    output.appendLine('[Tingly Box] Registered OpenAI-compatible provider');
-
-    const anthropicAdapter = new AnthropicAdapter();
-    ProviderRegistry.register(anthropicAdapter);
-    output.appendLine('[Tingly Box] Registered Anthropic-compatible provider');
+    // Initialize and register unified adapter
+    const unifiedAdapter = new UnifiedAdapter();
+    ProviderRegistry.register(unifiedAdapter);
+    output.appendLine('[Tingly Box] Registered unified provider adapter');
 
     // Create configuration manager
     const config = new ConfigManager(context.secrets, output);
@@ -44,23 +39,18 @@ export function activate(context: vscode.ExtensionContext) {
       output.appendLine('[Tingly Box] Configuration changed, clearing model cache...');
       provider.clearModelCache();
 
-      // Clear all adapters' model cache
-      for (const adapter of ProviderRegistry.list()) {
-        if (typeof (adapter as any).clearModelCache === 'function') {
-          (adapter as any).clearModelCache();
-        }
+      // Clear adapter's model cache
+      if (typeof (unifiedAdapter as any).clearModelCache === 'function') {
+        (unifiedAdapter as any).clearModelCache();
       }
 
       // Update status bar
       await statusBar.update();
     });
 
-    // Inject config manager into providers that need it
-    openAIAdapter.setConfigManager(config);
-    openAIAdapter.setOutputChannel(output);
-
-    anthropicAdapter.setConfigManager(config);
-    anthropicAdapter.setOutputChannel(output);
+    // Inject config manager into adapter
+    unifiedAdapter.setConfigManager(config);
+    unifiedAdapter.setOutputChannel(output);
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
@@ -102,36 +92,24 @@ export function activate(context: vscode.ExtensionContext) {
           output.appendLine('[Tingly Box] Fetching models from API...');
           output.show(true);
 
-          for (const adapter of ProviderRegistry.list()) {
-            try {
-              output.appendLine(`[Tingly Box] Fetching from ${adapter.id}...`);
+          // Clear cache to force fresh fetch
+          if (typeof (unifiedAdapter as any).clearModelCache === 'function') {
+            (unifiedAdapter as any).clearModelCache();
+          }
 
-              // Check if adapter has fetchModels method
-              if (typeof (adapter as any).fetchModels !== 'function') {
-                output.appendLine(`[Tingly Box] ${adapter.id} does not support fetching models`);
-                continue;
-              }
+          // Fetch models
+          const models = await (unifiedAdapter as any).fetchModels();
 
-              // Clear cache to force fresh fetch
-              (adapter as any).clearModelCache();
-
-              // Fetch models
-              const models = await (adapter as any).fetchModels();
-
-              output.appendLine(`[Tingly Box] Successfully fetched ${models.length} models from ${adapter.id}:`);
-              for (const model of models) {
-                output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
-                output.appendLine(`    ID: ${model.id}`);
-                output.appendLine(`    Input: ${model.maxInputTokens}, Output: ${model.maxOutputTokens} tokens`);
-                output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
-              }
-            } catch (error) {
-              output.appendLine(`[Tingly Box] Error fetching from ${adapter.id}: ${error}`);
-            }
+          output.appendLine(`[Tingly Box] Successfully fetched ${models.length} models:`);
+          for (const model of models) {
+            output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
+            output.appendLine(`    ID: ${model.id}`);
+            output.appendLine(`    Input: ${model.maxInputTokens}, Output: ${model.maxOutputTokens} tokens`);
+            output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
           }
 
           vscode.window.showInformationMessage(
-            'Successfully fetched models from all providers. Check output for details.'
+            `Successfully fetched ${models.length} models. Check output for details.`
           );
         } catch (error) {
           output.appendLine(`[Tingly Box] Error fetching models: ${error}`);
@@ -170,30 +148,38 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(manageLanguageModelsCommand);
     output.appendLine('[Tingly Box] Registered manage language models command');
 
+    // Register reset configuration command
+    const resetConfigCommand = vscode.commands.registerCommand(
+      'tinglybox.resetConfig',
+      async () => {
+        await settings.resetAllConfiguration();
+      }
+    );
+    context.subscriptions.push(resetConfigCommand);
+    output.appendLine('[Tingly Box] Registered reset configuration command');
+
     // Auto-fetch models on activation ONLY if already configured
     (async () => {
       try {
-        for (const adapter of ProviderRegistry.list()) {
-          if (typeof (adapter as any).fetchModels !== 'function') {
-            continue;
-          }
-
-          // Check if provider is configured BEFORE attempting to fetch
-          const hasConfig = await config.hasConfiguredProvider(adapter.id);
-          if (!hasConfig) {
-            output.appendLine(`[Tingly Box] ${adapter.id} not configured. Run "Tingly Box VSCode: Manage Settings" to configure.`);
-            continue;
+        // Check if provider is configured BEFORE attempting to fetch
+        const hasConfig = await config.hasConfiguredProvider('default');
+        if (!hasConfig) {
+          output.appendLine('[Tingly Box] Not configured. Run "Tingly Box: Manage Settings" to configure.');
+        } else {
+          // Clear cache to force fresh fetch
+          if (typeof (unifiedAdapter as any).clearModelCache === 'function') {
+            (unifiedAdapter as any).clearModelCache();
           }
 
           try {
-            output.appendLine(`[Tingly Box] Fetching models from ${adapter.id}...`);
-            const models = await (adapter as any).fetchModels();
-            output.appendLine(`[Tingly Box] Loaded ${models.length} models from ${adapter.id}:`);
+            output.appendLine('[Tingly Box] Fetching models...');
+            const models = await (unifiedAdapter as any).fetchModels();
+            output.appendLine(`[Tingly Box] Loaded ${models.length} models`);
             for (const model of models) {
               output.appendLine(`  - ${model.name}`);
             }
           } catch (error) {
-            output.appendLine(`[Tingly Box] Could not fetch models from ${adapter.id}: ${error}`);
+            output.appendLine(`[Tingly Box] Could not fetch models: ${error}`);
           }
         }
 

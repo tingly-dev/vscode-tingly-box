@@ -211,4 +211,47 @@ export class SettingsManager {
     );
     this.output.appendLine(`[Settings] API style toggled to ${newStyle} for ${providerId}`);
   }
+
+  /**
+   * Reset all configuration with one-step confirmation
+   * Non-modal warning message at bottom right with Reset/Cancel options
+   */
+  async resetAllConfiguration(): Promise<void> {
+    this.output.appendLine('[Settings] Initiating configuration reset...');
+
+    // Single confirmation - non-modal message at bottom right
+    const confirmation = await vscode.window.showWarningMessage(
+      'This will remove all your Tingly Box configuration. This action cannot be undone.',
+      'Reset',
+      'Cancel'
+    );
+
+    if (confirmation !== 'Reset') {
+      this.output.appendLine('[Settings] Reset cancelled');
+      return;
+    }
+
+    // Perform the reset
+    try {
+      await this.config.clearAllConfig();
+
+      // Prompt user to reload window to clear VSCode's cached model list
+      const shouldReload = await vscode.window.showInformationMessage(
+        'All Tingly Box configuration has been reset. Please reload the window to clear the model list.',
+        'Reload Window',
+        'Later'
+      );
+
+      if (shouldReload === 'Reload Window') {
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+      }
+
+      this.output.appendLine('[Settings] All configuration reset successfully');
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to reset configuration: ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.output.appendLine(`[Settings] Error resetting configuration: ${error}`);
+    }
+  }
 }

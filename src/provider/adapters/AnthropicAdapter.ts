@@ -26,8 +26,9 @@ type AnthropicEvent =
  * Adapter for Anthropic-compatible APIs
  */
 export class AnthropicAdapter extends BaseAPIAdapter {
-  readonly id = 'anthropic';
-  readonly displayName = 'Anthropic-Compatible';
+  readonly id = 'default';
+  readonly apiStyle = 'anthropic' as const;
+  readonly displayName = 'Tingly Box (Anthropic Style)';
 
   /**
    * Fetch models from remote API
