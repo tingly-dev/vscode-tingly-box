@@ -42,32 +42,32 @@
     "commands": [
       {
         "command": "tinglybox.status",
-        "title": "Tingly Box: Show Status",
+        "title": "Show Status",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.fetchModels",
-        "title": "Tingly Box: Fetch Models",
+        "title": "Fetch Models",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.manageLanguageModels",
-        "title": "Tingly Box: Manage Language Models",
+        "title": "Manage Language Models",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.resetConfig",
-        "title": "Tingly Box: Reset Configuration",
+        "title": "Reset Configuration",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.openConfigWebview",
-        "title": "Tingly Box: Manage Settings",
+        "title": "Manage Settings",
         "category": "Tingly Box"
       },
       {
         "command": "tinglybox.manage",
-        "title": "Tingly Box: Manage Settings (Quick Input)",
+        "title": "Manage Settings (Quick Input)",
         "category": "Tingly Box",
         "enablement": "false"
       }
