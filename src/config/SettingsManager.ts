@@ -88,23 +88,7 @@ export class SettingsManager {
    * Prompt user to enter base URL and token
    */
   private async promptForConfiguration(providerId: string, provider: any): Promise<void> {
-    // Step 1: Get API style
-    const apiStyle = await vscode.window.showQuickPick(
-      [
-        { label: 'OpenAI Style', description: 'Use OpenAI-compatible message format', value: 'openai' },
-        { label: 'Anthropic Style', description: 'Use Anthropic/Claude message format', value: 'anthropic' }
-      ],
-      {
-        placeHolder: 'Select API message style',
-        title: 'Tingly Box VSCode - API Style Selection'
-      }
-    );
-
-    if (!apiStyle) {
-      return; // User cancelled
-    }
-
-    // Step 2: Get base URL
+    // Step 1: Get base URL
     const currentConfig = await this.config.getProviderConfig(providerId);
     const baseUrl = await vscode.window.showInputBox({
       prompt: 'Enter your API Base URL',
@@ -128,6 +112,22 @@ export class SettingsManager {
     });
 
     if (!baseUrl) {
+      return; // User cancelled
+    }
+
+    // Step 2: Get API style
+    const apiStyle = await vscode.window.showQuickPick(
+      [
+        { label: 'OpenAI Style', description: 'Use OpenAI-compatible message format', value: 'openai' },
+        { label: 'Anthropic Style', description: 'Use Anthropic/Claude message format', value: 'anthropic' }
+      ],
+      {
+        placeHolder: 'Select API message style',
+        title: 'Tingly Box VSCode - API Style Selection'
+      }
+    );
+
+    if (!apiStyle) {
       return; // User cancelled
     }
 

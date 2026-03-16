@@ -31,7 +31,7 @@ export class AnthropicAdapter extends BaseAPIAdapter {
 
   /**
    * Fetch models from remote API
-   * Note: Anthropic doesn't have a models endpoint, so we return a static list
+   * Always fetch from provider endpoint - no fallback
    */
   protected async fetchModels(): Promise<ModelInfo[]> {
     if (!this.configManager) {
@@ -43,92 +43,33 @@ export class AnthropicAdapter extends BaseAPIAdapter {
       throw new Error('Provider not configured. Please configure Base URL and Token first.');
     }
 
-    this.log('Using static model list for Anthropic-compatible API');
+    // Try to fetch models from the provider's models endpoint
+    const modelsUrl = config.baseUrl.endsWith('/')
+      ? `${config.baseUrl}models`
+      : `${config.baseUrl}/models`;
 
-    // Static list of Anthropic models
-    const models: ModelInfo[] = [
-      {
-        id: `${this.id}:claude-sonnet-4-20250514`,
-        name: 'claude-sonnet-4-20250514',
-        provider: this.id,
-        family: 'claude-4',
-        version: '2025-05-14',
-        maxInputTokens: 200000,
-        maxOutputTokens: 8192,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-      {
-        id: `${this.id}:claude-3-5-sonnet-20241022`,
-        name: 'claude-3-5-sonnet-20241022',
-        provider: this.id,
-        family: 'claude-3.5-sonnet',
-        version: '2024-10-22',
-        maxInputTokens: 200000,
-        maxOutputTokens: 8192,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-      {
-        id: `${this.id}:claude-3-5-sonnet-20240620`,
-        name: 'claude-3-5-sonnet-20240620',
-        provider: this.id,
-        family: 'claude-3.5-sonnet',
-        version: '2024-06-20',
-        maxInputTokens: 200000,
-        maxOutputTokens: 8192,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-      {
-        id: `${this.id}:claude-3-opus-20240229`,
-        name: 'claude-3-opus-20240229',
-        provider: this.id,
-        family: 'claude-3',
-        version: '2024-02-29',
-        maxInputTokens: 200000,
-        maxOutputTokens: 4096,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-      {
-        id: `${this.id}:claude-3-sonnet-20240229`,
-        name: 'claude-3-sonnet-20240229',
-        provider: this.id,
-        family: 'claude-3',
-        version: '2024-02-29',
-        maxInputTokens: 200000,
-        maxOutputTokens: 4096,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-      {
-        id: `${this.id}:claude-3-haiku-20240307`,
-        name: 'claude-3-haiku-20240307',
-        provider: this.id,
-        family: 'claude-3',
-        version: '2024-03-07',
-        maxInputTokens: 200000,
-        maxOutputTokens: 4096,
-        capabilities: {
-          imageInput: true,
-          toolCalling: true,
-        },
-      },
-    ];
+    this.log(`Fetching models from: ${modelsUrl}`);
 
-    this.cachedModels = models;
-    return models;
+    const response = await fetch(modelsUrl, {
+      method: 'GET',
+      headers: {
+        'x-api-key': config.token,
+      },
+    });
+
+    this.log(`Models API response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const body = await response.text();
+      this.log(`Models API error response: ${body.substring(0, 200)}`);
+      const error = await ErrorHandler.createAPIError(response, body);
+      throw error;
+    }
+
+    const data = await response.json() as OpenAIModelsResponse;
+    this.log(`Received ${data.data.length} models from API`);
+    this.cachedModels = this.parseModelsFromAPI(data, this.id);
+    return this.cachedModels;
   }
 
   /**
