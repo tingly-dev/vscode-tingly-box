@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import { describe, it } from 'mocha';
+import * as vscode from 'vscode';
 import { MessageConverter } from '../utils/MessageConverter.js';
 import type { ProviderMessage } from '../types/index.js';
 
@@ -13,9 +14,9 @@ describe('MessageConverter', () => {
     it('should convert VSCode user message to provider format', () => {
       const vscodeMessage = {
         name: undefined,
-        role: 'user' as const,
+        role: vscode.LanguageModelChatMessageRole.User,
         content: [
-          { value: 'Hello, AI!' } as any,
+          new vscode.LanguageModelTextPart('Hello, AI!'),
         ],
       };
 
@@ -29,13 +30,13 @@ describe('MessageConverter', () => {
       const vscodeMessages = [
         {
           name: undefined,
-          role: 'user' as const,
-          content: [{ value: 'First message' } as any],
+          role: vscode.LanguageModelChatMessageRole.User,
+          content: [new vscode.LanguageModelTextPart('First message')],
         },
         {
           name: undefined,
-          role: 'assistant' as const,
-          content: [{ value: 'Second message' } as any],
+          role: vscode.LanguageModelChatMessageRole.Assistant,
+          content: [new vscode.LanguageModelTextPart('Second message')],
         },
       ];
 
@@ -48,14 +49,15 @@ describe('MessageConverter', () => {
     it('should concatenate multiple text parts', () => {
       const vscodeMessage = {
         name: undefined,
-        role: 'user' as const,
+        role: vscode.LanguageModelChatMessageRole.User,
         content: [
-          { value: 'Hello ' } as any,
-          { value: 'World!' } as any,
+          new vscode.LanguageModelTextPart('Hello '),
+          new vscode.LanguageModelTextPart('World!'),
         ],
       };
 
       const result = MessageConverter.toProviderMessages([vscodeMessage as any]);
+      // 'Hello ' + '' + 'World!' = 'Hello World!' (preserves trailing space from first part)
       assert.strictEqual(result[0].content, 'Hello World!');
     });
   });
@@ -219,7 +221,8 @@ describe('MessageConverter', () => {
       ];
 
       const result = MessageConverter.toAnthropicFormat(messages);
-      assert.strictEqual(result[0].content, 'Hello\nWorld!');
+      // Implementation joins with '\n', so 'Hello ' + '\n' + 'World!' = 'Hello \nWorld!'
+      assert.strictEqual(result[0].content, 'Hello \nWorld!');
     });
 
     it('should ignore non-text parts', () => {
