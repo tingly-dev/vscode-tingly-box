@@ -207,7 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
         .then((selection) => {
           if (selection === 'Configure') {
-            vscode.commands.executeCommand('tinglybox.manage');
+            vscode.commands.executeCommand('tinglybox.openConfigWebview');
           }
         });
       context.globalState.update('hasShownWelcome', true);

@@ -35,16 +35,11 @@
         "vendor": "tinglybox-vscode",
         "displayName": "Tingly Box",
         "configuration": {
-          "command": "tinglybox.manage"
+          "command": "tinglybox.openConfigWebview"
         }
       }
     ],
     "commands": [
-      {
-        "command": "tinglybox.manage",
-        "title": "Tingly Box: Manage Settings",
-        "category": "Tingly Box"
-      },
       {
         "command": "tinglybox.status",
         "title": "Tingly Box: Show Status",
@@ -67,8 +62,14 @@
       },
       {
         "command": "tinglybox.openConfigWebview",
-        "title": "Tingly Box: Open Configuration Webview",
+        "title": "Tingly Box: Manage Settings",
         "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.manage",
+        "title": "Tingly Box: Manage Settings (Quick Input)",
+        "category": "Tingly Box",
+        "enablement": "false"
       }
     ],
     "configuration": {

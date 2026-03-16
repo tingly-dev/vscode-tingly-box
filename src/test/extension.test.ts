@@ -15,23 +15,24 @@ describe('Extension Test Suite', () => {
       assert.ok(true); // Placeholder - actual activation would require more complex setup
     });
 
-    it('should register all expected commands', async () => {
-      const expectedCommands = [
-        'tinglybox.manage',
-        'tinglybox.status',
-        'tinglybox.fetchModels',
-        'tinglybox.toggleStyle',
-        'tinglybox.manageLanguageModels',
-        'tinglybox.resetConfig',
-        'tinglybox.openConfigWebview',
-      ];
+    // Temporarily disabled - quick input command hidden in favor of webview
+    // it('should register all expected commands', async () => {
+    //   const expectedCommands = [
+    //     'tinglybox.manage',
+    //     'tinglybox.status',
+    //     'tinglybox.fetchModels',
+    //     'tinglybox.toggleStyle',
+    //     'tinglybox.manageLanguageModels',
+    //     'tinglybox.resetConfig',
+    //     'tinglybox.openConfigWebview',
+    //   ];
 
-      // After extension activation, these commands should be registered
-      // This is a placeholder - actual test would run activate() and check
-      expectedCommands.forEach(_cmd => {
-        assert.ok(true);
-      });
-    });
+    //   // After extension activation, these commands should be registered
+    //   // This is a placeholder - actual test would run activate() and check
+    //   expectedCommands.forEach(_cmd => {
+    //     assert.ok(true);
+    //   });
+    // });
   });
 
   describe('VSCode API Integration', () => {
