@@ -15,10 +15,20 @@ import { ErrorHandler } from '../utils/ErrorHandler.js';
  * Main provider implementation for VSCode Language Model Chat API
  */
 export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
+  private cachedModels: vscode.LanguageModelChatInformation[] | null = null;
+
   constructor(
     private readonly config: ConfigManager,
     private readonly output: vscode.OutputChannel
   ) {}
+
+  /**
+   * Clear cached models to force a refresh
+   */
+  clearModelCache(): void {
+    this.output.appendLine('[Provider] Clearing model cache');
+    this.cachedModels = null;
+  }
 
   /**
    * Provide information about available language models
@@ -28,6 +38,12 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
     options: { silent: boolean },
     token: vscode.CancellationToken
   ): Promise<vscode.LanguageModelChatInformation[]> {
+    // Return cached models if available
+    if (this.cachedModels && this.cachedModels.length > 0) {
+      this.output.appendLine(`[Provider] Returning ${this.cachedModels.length} cached models`);
+      return this.cachedModels;
+    }
+
     const models: vscode.LanguageModelChatInformation[] = [];
 
     try {
@@ -79,6 +95,12 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
       }
 
       this.output.appendLine(`[Provider] Returning ${models.length} models`);
+
+      // Cache the models for future calls
+      if (models.length > 0) {
+        this.cachedModels = models;
+      }
+
       return models;
     } catch (error) {
       ErrorHandler.handle(error, this.output);

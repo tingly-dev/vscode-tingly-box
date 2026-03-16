@@ -30,15 +30,27 @@ export function activate(context: vscode.ExtensionContext) {
     // Create configuration manager
     const config = new ConfigManager(context.secrets, output);
 
+    // Create main provider
+    const provider = new TinglyBoxProvider(config, output);
+
+    // Listen for configuration changes to refresh models
+    config.on(ConfigManager.CONFIG_CHANGED, () => {
+      output.appendLine('[TinglyBox] Configuration changed, clearing model cache...');
+      provider.clearModelCache();
+
+      // Also clear the adapter's model cache
+      const adapter = ProviderRegistry.get('default');
+      if (adapter && typeof (adapter as any).clearModelCache === 'function') {
+        (adapter as any).clearModelCache();
+      }
+    });
+
     // Inject config manager into providers that need it
     openAIAdapter.setConfigManager(config);
     openAIAdapter.setOutputChannel(output);
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
-
-    // Create main provider
-    const provider = new TinglyBoxProvider(config, output);
 
     // Register the language model provider with VSCode
     const providerRegistration = vscode.lm.registerLanguageModelChatProvider(

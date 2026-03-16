@@ -4,16 +4,29 @@
  */
 
 import * as vscode from 'vscode';
+import { EventEmitter } from 'events';
 import type { ProviderConfig } from '../types/index.js';
+
+/**
+ * Configuration change event
+ */
+export interface ConfigChangeEvent {
+  providerId: string;
+  action: 'set' | 'remove';
+}
 
 /**
  * Manages secure storage of API tokens and base URLs
  */
-export class ConfigManager {
+export class ConfigManager extends EventEmitter {
   private static readonly STORAGE_PREFIX = 'tinglybox.';
   private readonly outputChannel?: vscode.OutputChannel;
 
+  // Event name for configuration changes
+  static readonly CONFIG_CHANGED = 'configChanged';
+
   constructor(private readonly secrets: vscode.SecretStorage, outputChannel?: vscode.OutputChannel) {
+    super();
     this.outputChannel = outputChannel;
   }
 
@@ -105,6 +118,9 @@ export class ConfigManager {
     ]);
 
     this.log(`Config stored successfully for ${providerId}`);
+
+    // Emit configuration change event
+    this.emit(ConfigManager.CONFIG_CHANGED, { providerId, action: 'set' });
   }
 
   /**
@@ -123,6 +139,9 @@ export class ConfigManager {
     ]);
 
     this.log(`Config removed for ${providerId}`);
+
+    // Emit configuration change event
+    this.emit(ConfigManager.CONFIG_CHANGED, { providerId, action: 'remove' });
   }
 
   /**

@@ -114,7 +114,7 @@ export class OpenAIAdapter extends BaseProviderAdapter {
     const response = await fetch(modelsUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${config.token.substring(0, 10)}...`,
+        'Authorization': `Bearer ${config.token}`,
       },
     });
 
@@ -253,7 +253,7 @@ export class OpenAIAdapter extends BaseProviderAdapter {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${config.token.substring(0, 10)}...`,
+          'Authorization': `Bearer ${config.token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
