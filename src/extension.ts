@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize and register providers
     const openAIAdapter = new OpenAIAdapter();
     ProviderRegistry.register(openAIAdapter);
-    output.appendLine('[TinglyBox] Registered OpenAI provider');
+    output.appendLine('[TinglyBox] Registered OpenAI-compatible provider');
 
     // Create configuration manager
     const config = new ConfigManager(context.secrets);

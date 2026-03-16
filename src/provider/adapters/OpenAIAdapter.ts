@@ -1,6 +1,7 @@
 /**
  * OpenAI-compatible provider adapter
  * Implements chat functionality using OpenAI-compatible APIs
+ * Fetches available models dynamically from the API
  */
 
 import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
@@ -28,6 +29,19 @@ interface OpenAIChatResponse {
 }
 
 /**
+ * OpenAI models API response
+ */
+interface OpenAIModelsResponse {
+  object: string;
+  data: Array<{
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+  }>;
+}
+
+/**
  * Adapter for OpenAI-compatible APIs
  */
 export class OpenAIAdapter extends BaseProviderAdapter {
@@ -35,6 +49,7 @@ export class OpenAIAdapter extends BaseProviderAdapter {
   readonly displayName = 'Tingly Box VSCode';
 
   private configManager?: ConfigManager;
+  private cachedModels: ModelInfo[] | null = null;
 
   /**
    * Set the config manager (called during extension activation)
@@ -44,63 +59,143 @@ export class OpenAIAdapter extends BaseProviderAdapter {
   }
 
   /**
-   * Available models (common OpenAI-compatible models)
+   * Get available models by fetching from API
    */
-  private readonly MODELS: ModelInfo[] = [
-    {
-      id: 'default:gpt-4o',
-      name: 'GPT-4o',
-      provider: 'default',
-      family: 'gpt-4',
-      version: '2024-05-13',
-      maxInputTokens: 128000,
-      maxOutputTokens: 4096,
-      capabilities: {
-        imageInput: true,
-        toolCalling: true,
-      },
-    },
-    {
-      id: 'default:gpt-4o-mini',
-      name: 'GPT-4o Mini',
-      provider: 'default',
-      family: 'gpt-4',
-      version: '2024-05-13',
-      maxInputTokens: 128000,
-      maxOutputTokens: 16384,
-      capabilities: {
-        toolCalling: true,
-      },
-    },
-    {
-      id: 'default:gpt-3.5-turbo',
-      name: 'GPT-3.5 Turbo',
-      provider: 'default',
-      family: 'gpt-3.5',
-      version: '2023-11-06',
-      maxInputTokens: 16385,
-      maxOutputTokens: 4096,
-      capabilities: {
-        toolCalling: true,
-      },
-    },
-    {
-      id: 'default:claude-3-5-sonnet',
-      name: 'Claude 3.5 Sonnet',
-      provider: 'default',
-      family: 'claude-3',
-      version: '2024-06-20',
-      maxInputTokens: 200000,
-      maxOutputTokens: 8192,
-      capabilities: {
-        imageInput: true,
-        toolCalling: true,
-      },
-    },
-  ];
+  async getModels(): Promise<ModelInfo[]> {
+    if (!this.configManager) {
+      throw new Error('ConfigManager not initialized');
+    }
 
-  getModels(): ModelInfo[] {
-    return this.MODELS;
+    const config = await this.configManager.getProviderConfig('default');
+    if (!config) {
+      return []; // Return empty if not configured
+    }
+
+    // Return cached models if available
+    if (this.cachedModels) {
+      return this.cachedModels;
+    }
+
+    try {
+      // Fetch models from API
+      const modelsUrl = new URL('/models', config.baseUrl).toString();
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${config.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // If models endpoint fails, return default models
+        return this.getDefaultModels();
+      }
+
+      const data = (await response.json()) as OpenAIModelsResponse;
+
+      // Convert API response to ModelInfo
+      this.cachedModels = this.parseModelsFromAPI(data);
+      return this.cachedModels;
+    } catch (error) {
+      // On error, return default models
+      return this.getDefaultModels();
+    }
+  }
+
+  /**
+   * Parse models from API response
+   */
+  private parseModelsFromAPI(response: OpenAIModelsResponse): ModelInfo[] {
+    return response.data.map((model) => {
+      const modelId = `default:${model.id}`;
+
+      // Estimate token limits based on model name
+      let maxInputTokens = 128000;
+      let maxOutputTokens = 4096;
+      let family = model.id.split('-')[0] || 'unknown';
+      let version = new Date(model.created * 1000).toISOString().split('T')[0];
+
+      // Adjust based on model name patterns
+      if (model.id.includes('gpt-4')) {
+        family = 'gpt-4';
+        maxInputTokens = 128000;
+        maxOutputTokens = model.id.includes('mini') ? 16384 : 4096;
+      } else if (model.id.includes('gpt-3.5')) {
+        family = 'gpt-3.5';
+        maxInputTokens = 16385;
+        maxOutputTokens = 4096;
+      } else if (model.id.includes('claude')) {
+        family = 'claude';
+        maxInputTokens = 200000;
+        maxOutputTokens = 8192;
+      }
+
+      return {
+        id: modelId,
+        name: model.id,
+        provider: 'default',
+        family,
+        version,
+        maxInputTokens,
+        maxOutputTokens,
+        capabilities: {
+          toolCalling: true,
+        },
+      };
+    });
+  }
+
+  /**
+   * Get default models as fallback
+   */
+  private getDefaultModels(): ModelInfo[] {
+    return [
+      {
+        id: 'default:gpt-4o',
+        name: 'GPT-4o',
+        provider: 'default',
+        family: 'gpt-4',
+        version: '2024-05-13',
+        maxInputTokens: 128000,
+        maxOutputTokens: 4096,
+        capabilities: {
+          imageInput: true,
+          toolCalling: true,
+        },
+      },
+      {
+        id: 'default:gpt-4o-mini',
+        name: 'GPT-4o Mini',
+        provider: 'default',
+        family: 'gpt-4',
+        version: '2024-05-13',
+        maxInputTokens: 128000,
+        maxOutputTokens: 16384,
+        capabilities: {
+          toolCalling: true,
+        },
+      },
+      {
+        id: 'default:claude-3-5-sonnet',
+        name: 'Claude 3.5 Sonnet',
+        provider: 'default',
+        family: 'claude-3',
+        version: '2024-06-20',
+        maxInputTokens: 200000,
+        maxOutputTokens: 8192,
+        capabilities: {
+          imageInput: true,
+          toolCalling: true,
+        },
+      },
+    ];
+  }
+
+  /**
+   * Clear cached models (call when configuration changes)
+   */
+  clearModelCache(): void {
+    this.cachedModels = null;
   }
 
   async chat(
@@ -117,7 +212,7 @@ export class OpenAIAdapter extends BaseProviderAdapter {
     const config = await this.configManager.getProviderConfig('default');
     if (!config) {
       throw new Error(
-        'Tingly Box VSCode not configured. Please run "Tingly Box: Manage Settings" to configure.'
+        'Tingly Box VSCode not configured. Please run "Tingly Box VSCode: Manage Settings" to configure.'
       );
     }
 

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
 import { ProviderRegistry } from '../provider/ProviderRegistry.js';
+import type { OpenAIAdapter } from '../provider/adapters/OpenAIAdapter.js';
 
 /**
  * Manages the settings UI for configuring providers
@@ -91,9 +92,9 @@ export class SettingsManager {
     // Step 1: Get base URL
     const currentConfig = await this.config.getProviderConfig(providerId);
     const baseUrl = await vscode.window.showInputBox({
-      prompt: 'Enter your API Base URL (e.g., https://api.openai.com/v1)',
-      placeHolder: 'https://api.openai.com/v1',
-      value: currentConfig?.baseUrl || '',
+      prompt: 'Enter your API Base URL',
+      placeHolder: 'http://localhost:12580/tingly/openai',
+      value: currentConfig?.baseUrl || 'http://localhost:12580/tingly/openai',
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
           return 'Base URL cannot be empty';
@@ -145,6 +146,12 @@ export class SettingsManager {
         token: token.trim(),
       });
 
+      // Clear model cache so new configuration takes effect
+      const adapter = ProviderRegistry.get(providerId) as OpenAIAdapter;
+      if (adapter && typeof adapter.clearModelCache === 'function') {
+        adapter.clearModelCache();
+      }
+
       vscode.window.showInformationMessage(
         `${provider.displayName} configuration saved successfully.`
       );
@@ -175,6 +182,13 @@ export class SettingsManager {
 
     try {
       await this.config.removeProviderConfig(providerId);
+
+      // Clear model cache
+      const adapter = ProviderRegistry.get(providerId) as OpenAIAdapter;
+      if (adapter && typeof adapter.clearModelCache === 'function') {
+        adapter.clearModelCache();
+      }
+
       vscode.window.showInformationMessage(
         `${provider.displayName} configuration has been removed.`
       );
