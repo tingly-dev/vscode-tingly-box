@@ -202,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!hasShownWelcome) {
       vscode.window
         .showInformationMessage(
-          'Tingly Box VSCode is now active! Please configure your Base URL and Token to get started.',
+          'Tingly Box For VS Code is now active! Please configure your Base URL and Token to get started.',
           'Configure'
         )
         .then((selection) => {

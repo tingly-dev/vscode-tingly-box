@@ -222,7 +222,7 @@ export class ConfigManager extends EventEmitter {
    * Deletes all SecretStorage keys with the 'tinglybox.' prefix
    */
   async clearAllConfig(): Promise<void> {
-    this.log('Clearing all Tingly Box configuration...');
+    this.log('Clearing all Tingly Box For VS Code configuration...');
 
     // Known keys to delete
     const keysToDelete = [

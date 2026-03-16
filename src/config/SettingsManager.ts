@@ -97,7 +97,7 @@ export class SettingsManager {
       ],
       {
         placeHolder: 'Select API message style',
-        title: 'Tingly Box VSCode - API Style Selection',
+        title: 'Tingly Box For VS Code - API Style Selection',
       }
     );
 
@@ -182,12 +182,12 @@ export class SettingsManager {
       const tokenStatus = config.token ? 'configured' : 'not set';
 
       vscode.window.showInformationMessage(
-        `Tingly Box: $(check) Configured\nHost: ${host}\nAPI Style: ${style}\nToken: ${tokenStatus}`,
+        `Tingly Box For VS Code: $(check) Configured\nHost: ${host}\nAPI Style: ${style}\nToken: ${tokenStatus}`,
         { modal: true }
       );
     } else {
       vscode.window.showInformationMessage(
-        'Tingly Box: $(circle-large-outline) Not configured',
+        'Tingly Box For VS Code: $(circle-large-outline) Not configured',
         { modal: true }
       );
     }
@@ -221,7 +221,7 @@ export class SettingsManager {
 
     // Single confirmation - non-modal message at bottom right
     const confirmation = await vscode.window.showWarningMessage(
-      'This will remove all your Tingly Box configuration. This action cannot be undone.',
+      'This will remove all your configuration in Tingly Box For VS Code. This action cannot be undone.',
       'Reset',
       'Cancel'
     );
@@ -237,7 +237,7 @@ export class SettingsManager {
 
       // Prompt user to reload window to clear VSCode's cached model list
       const shouldReload = await vscode.window.showInformationMessage(
-        'All Tingly Box configuration has been reset. Please reload the window to clear the model list.',
+        'All Tingly Box For VS Code configuration has been reset. Please reload the window to clear the model list.',
         'Reload Window',
         'Later'
       );
