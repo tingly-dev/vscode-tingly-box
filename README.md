@@ -20,32 +20,70 @@ Works perfectly on its own too:
 - **Streaming Responses** — Real-time streaming chat responses with full VS Code integration
 - **Vision Support** — Models with image input capabilities (like Claude Sonnet and GPT-4V) work seamlessly
 - **Tool Calling** — Full support for models with function/tool calling capabilities
-- **Status Bar Indicator** — Quick view of your active provider and API style
+- **Status Bar Indicator** — Shows connection status and available model count at a glance
 - **Secure Credential Storage** — API tokens stored securely in VS Code's SecretStorage
 - **Model Discovery** — Automatically fetches available models from your configured endpoints
+- **Webview Configuration UI** — Modern, intuitive interface for managing your settings
 
 ## Quick Start
 
+### Using with Tingly Box (Recommended)
+
+1. Install and start [Tingly Box](https://github.com/tingly-dev/tingly-box):
+   ```bash
+   npx tingly-box@latest
+   ```
+2. Install the VSCode extension
+3. Click the status bar item or run `Tingly Box: Manage Settings`
+4. Enter your Tingly Box URL (default: `http://localhost:12580/tingly/openai`)
+5. Select your API Style (OpenAI or Anthropic — either works with Tingly Box)
+6. Save and start chatting!
+
+### Using with Custom Providers
+
 1. Install the extension from the VS Code Marketplace
-2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box VSCode: Manage Settings`
+2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box: Manage Settings`
 3. Configure your provider:
-   - **Base URL**: Your API endpoint (e.g., `https://api.openai.com/v1/` or a custom endpoint)
+   - **Base URL**: Your API endpoint (e.g., `https://api.openai.com/v1/`)
    - **Token**: Your API key
-   - **API Style**: Choose between `anthropic` or `openai` format
-4. Start chatting with AI in VS Code!
+   - **API Style**: Choose between `OpenAI` or `Anthropic` format
+4. Click "Test Connection" to verify your setup
+5. Save and start chatting!
+
+> **Note**: Custom providers must support the `/models` endpoint for automatic model discovery.
 
 ## Commands
 
-| Command                                   | Description                    |
-| ----------------------------------------- | ------------------------------ |
-| `Tingly Box VSCode: Manage Settings`      | Open configuration UI          |
-| `Tingly Box VSCode: Show Provider Status` | View current connection status |
-| `Tingly Box VSCode: Fetch Models`         | Refresh available models       |
-| `Tingly Box VSCode: Toggle API Style`     | Switch between API styles      |
+| Command                                   | Description                              |
+| ----------------------------------------- | ---------------------------------------- |
+| `Tingly Box: Manage Settings`             | Open configuration webview               |
+| `Tingly Box: Show Status`                 | View current connection status           |
+| `Tingly Box: Fetch Models`                | Refresh available models from API        |
+| `Tingly Box: Manage Language Models`      | Open VSCode's language model management  |
+| `Tingly Box: Reset Configuration`         | Clear all saved configuration            |
+
+## Status Bar
+
+The extension adds a status bar item that shows:
+- **⚠️ Setup Required** — Not configured, click to setup
+- **✅ N Models** — Connected with N models available
+- **⊘ Disconnected** — Configuration exists but connection failed
+
+Click the status bar to quickly open the configuration webview.
 
 ## Settings
 
+### VSCode Settings
+
 - `tinglybox.debug` — Enable debug logging in output channel (default: `false`)
+
+### Provider Configuration
+
+Provider settings are configured through the webview UI and stored securely in VSCode's SecretStorage:
+
+- **Base URL** — Your API endpoint (required)
+- **Token** — API authentication token (optional)
+- **API Style** — Message format: `OpenAI` or `Anthropic` (required)
 
 ## Supported Providers
 
@@ -58,14 +96,39 @@ Works perfectly on its own too:
 - Anthropic Claude (Sonnet, Opus, Haiku)
 - Any Anthropic-compatible endpoint
 
-### Mention
-It is recommended to use with Tingly Box, which provides continuous compatibility support.
-Using the plugin independently requires the vendor to provide guarantees.
+### Recommendation
+
+While you can use custom providers directly, we strongly recommend using [Tingly Box](https://github.com/tingly-dev/tingly-box) for the best experience:
+
+- **Provider Compatibility** — Handles API differences between providers
+- **Model Discovery** — Automatic model list fetching and caching
+- **Seamless Switching** — Easy switching between providers and API styles
+- **Unified Interface** — Single configuration for all your AI needs
+
+Using the plugin independently requires your provider to guarantee API compatibility.
+
+## Troubleshooting
+
+### Connection Issues
+- Check your Base URL is correct and accessible
+- Verify your token if authentication is required
+- Use "Test Connection" in the settings to diagnose issues
+- Enable `tinglybox.debug` to see detailed logs in the output channel
+
+### Models Not Showing
+- Ensure your provider supports the `/models` endpoint
+- Try "Fetch Models" command to refresh the model list
+- Check the output channel for error messages
+
+### Status Bar Shows Disconnected
+- Your provider may be temporarily unavailable
+- Check your network connection
+- Verify your configuration is correct
 
 ## Requirements
 
 - VS Code 1.104.0 or higher
-- An API key from your chosen provider
+- An API key from your chosen provider (if required)
 
 ## License
 
@@ -76,3 +139,4 @@ Using the plugin independently requires the vendor to provide guarantees.
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tingly-dev.vscode-tingly-box)
 - [Source Code](https://github.com/tingly-dev/vscode-tingly-box)
 - [Report Issues](https://github.com/tingly-dev/vscode-tingly-box/issues)
+- [Tingly Box](https://github.com/tingly-dev/tingly-box)
