@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
-import type { ProviderConfig } from '../types/index.js';
+import type { ProviderConfig, APIStyle } from '../types/index.js';
 
 /**
  * Configuration change event
@@ -47,12 +47,14 @@ export class ConfigManager extends EventEmitter {
   async getProviderConfig(providerId: string): Promise<ProviderConfig | undefined> {
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
+    const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
 
     this.log(`Reading config for provider: ${providerId}`);
 
-    const [token, baseUrl] = await Promise.all([
+    const [token, baseUrl, apiStyle] = await Promise.all([
       this.secrets.get(tokenKey),
       this.secrets.get(urlKey),
+      this.secrets.get(styleKey),
     ]);
 
     if (!token || !baseUrl) {
@@ -60,10 +62,13 @@ export class ConfigManager extends EventEmitter {
       return undefined;
     }
 
-    // Log base URL (but mask token)
-    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, token=****${token.slice(-4)}`);
+    // Use 'openai' as default API style if not set (for backwards compatibility)
+    const style = (apiStyle as APIStyle) || 'openai';
 
-    return { token, baseUrl };
+    // Log base URL (but mask token)
+    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, apiStyle=${style}, token=****${token.slice(-4)}`);
+
+    return { token, baseUrl, apiStyle: style };
   }
 
   /**
@@ -91,13 +96,26 @@ export class ConfigManager extends EventEmitter {
   }
 
   /**
+   * Get API style for a specific provider
+   * @param providerId - The provider identifier
+   * @returns The API style or 'openai' as default
+   */
+  async getAPIStyle(providerId: string): Promise<APIStyle> {
+    const key = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
+    const style = await this.secrets.get(key);
+    const result = (style as APIStyle) || 'openai';
+    this.log(`Get apiStyle for ${providerId}: ${result}`);
+    return result;
+  }
+
+  /**
    * Store configuration for a provider
    * @param providerId - The provider identifier
    * @param config - The configuration to store
    * @throws Error if validation fails
    */
   async setProviderConfig(providerId: string, config: ProviderConfig): Promise<void> {
-    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, token=****${config.token.slice(-4)}`);
+    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, apiStyle=${config.apiStyle}, token=****${config.token.slice(-4)}`);
 
     // Validate URL format
     if (!this.isValidUrl(config.baseUrl)) {
@@ -109,12 +127,19 @@ export class ConfigManager extends EventEmitter {
       throw new Error('Token cannot be empty');
     }
 
+    // Validate API style
+    if (config.apiStyle !== 'anthropic' && config.apiStyle !== 'openai') {
+      throw new Error('API style must be either "anthropic" or "openai"');
+    }
+
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
+    const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
 
     await Promise.all([
       this.secrets.store(tokenKey, config.token),
       this.secrets.store(urlKey, config.baseUrl),
+      this.secrets.store(styleKey, config.apiStyle),
     ]);
 
     this.log(`Config stored successfully for ${providerId}`);
@@ -132,10 +157,12 @@ export class ConfigManager extends EventEmitter {
 
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
+    const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
 
     await Promise.all([
       this.secrets.delete(tokenKey),
       this.secrets.delete(urlKey),
+      this.secrets.delete(styleKey),
     ]);
 
     this.log(`Config removed for ${providerId}`);
@@ -171,5 +198,26 @@ export class ConfigManager extends EventEmitter {
       this.log(`URL validation for ${url}: invalid (parse error)`);
       return false;
     }
+  }
+
+  /**
+   * Update only the API style for a provider
+   * @param providerId - The provider identifier
+   * @param apiStyle - The new API style
+   */
+  async updateAPIStyle(providerId: string, apiStyle: APIStyle): Promise<void> {
+    this.log(`Updating API style for ${providerId}: ${apiStyle}`);
+
+    if (apiStyle !== 'anthropic' && apiStyle !== 'openai') {
+      throw new Error('API style must be either "anthropic" or "openai"');
+    }
+
+    const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
+    await this.secrets.store(styleKey, apiStyle);
+
+    this.log(`API style updated for ${providerId}`);
+
+    // Emit configuration change event
+    this.emit(ConfigManager.CONFIG_CHANGED, { providerId, action: 'set' });
   }
 }

@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { TinglyBoxProvider } from './provider/TinglyBoxProvider.js';
 import { ConfigManager } from './config/ConfigManager.js';
 import { SettingsManager } from './config/SettingsManager.js';
+import { StatusBarManager } from './config/StatusBarManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
 import { OpenAIAdapter } from './provider/adapters/OpenAIAdapter.js';
 import { ErrorHandler } from './utils/ErrorHandler.js';
@@ -34,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
     const provider = new TinglyBoxProvider(config, output);
 
     // Listen for configuration changes to refresh models
-    config.on(ConfigManager.CONFIG_CHANGED, () => {
+    config.on(ConfigManager.CONFIG_CHANGED, async () => {
       output.appendLine('[TinglyBox] Configuration changed, clearing model cache...');
       provider.clearModelCache();
 
@@ -43,6 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
       if (adapter && typeof (adapter as any).clearModelCache === 'function') {
         (adapter as any).clearModelCache();
       }
+
+      // Update status bar
+      await statusBar.update();
     });
 
     // Inject config manager into providers that need it
@@ -51,6 +55,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
+
+    // Create status bar manager
+    const statusBar = new StatusBarManager(config, output);
+    context.subscriptions.push(statusBar.getItem());
+    output.appendLine('[TinglyBox] Registered status bar item');
 
     // Register the language model provider with VSCode
     const providerRegistration = vscode.lm.registerLanguageModelChatProvider(
@@ -119,6 +128,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(fetchModelsCommand);
     output.appendLine('[TinglyBox] Registered fetch models command');
+
+    // Register toggle API style command
+    const toggleStyleCommand = vscode.commands.registerCommand(
+      'tinglybox.toggleStyle',
+      async () => {
+        await statusBar.toggleStyle();
+      }
+    );
+    context.subscriptions.push(toggleStyleCommand);
+    output.appendLine('[TinglyBox] Registered toggle style command');
 
     // Auto-fetch models on activation ONLY if already configured
     (async () => {

@@ -131,8 +131,13 @@ export class ErrorHandler {
       }
     }
 
-    const error = new APIError(message, response.status, code);
-    (error as any).headers = Object.fromEntries(response.headers.entries());
+    // Extract headers manually since Headers.entries() might not be available
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    const error = new APIError(message, response.status, code, headers);
     return error;
   }
 }

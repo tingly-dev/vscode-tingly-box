@@ -3,6 +3,11 @@
  */
 
 /**
+ * Supported API styles
+ */
+export type APIStyle = 'anthropic' | 'openai';
+
+/**
  * Provider configuration stored in SecretStorage
  */
 export interface ProviderConfig {
@@ -10,6 +15,8 @@ export interface ProviderConfig {
   token: string;
   /** Base URL for API (required for custom endpoints) */
   baseUrl: string;
+  /** API style to use for message formatting */
+  apiStyle: APIStyle;
 }
 
 /**
@@ -100,4 +107,12 @@ export class APIError extends Error {
     super(message);
     this.name = 'APIError';
   }
+}
+
+/**
+ * Configuration change event details
+ */
+export interface ConfigChangeEvent {
+  providerId: string;
+  action: 'set' | 'remove';
 }

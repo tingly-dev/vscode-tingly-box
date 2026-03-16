@@ -88,7 +88,23 @@ export class SettingsManager {
    * Prompt user to enter base URL and token
    */
   private async promptForConfiguration(providerId: string, provider: any): Promise<void> {
-    // Step 1: Get base URL
+    // Step 1: Get API style
+    const apiStyle = await vscode.window.showQuickPick(
+      [
+        { label: 'OpenAI Style', description: 'Use OpenAI-compatible message format', value: 'openai' },
+        { label: 'Anthropic Style', description: 'Use Anthropic/Claude message format', value: 'anthropic' }
+      ],
+      {
+        placeHolder: 'Select API message style',
+        title: 'Tingly Box VSCode - API Style Selection'
+      }
+    );
+
+    if (!apiStyle) {
+      return; // User cancelled
+    }
+
+    // Step 2: Get base URL
     const currentConfig = await this.config.getProviderConfig(providerId);
     const baseUrl = await vscode.window.showInputBox({
       prompt: 'Enter your API Base URL',
@@ -115,7 +131,7 @@ export class SettingsManager {
       return; // User cancelled
     }
 
-    // Step 2: Get token
+    // Step 3: Get token
     const token = await vscode.window.showInputBox({
       prompt: 'Enter your API Token',
       password: true,
@@ -143,13 +159,14 @@ export class SettingsManager {
       await this.config.setProviderConfig(providerId, {
         baseUrl: baseUrl.trim(),
         token: token.trim(),
+        apiStyle: apiStyle.value as 'anthropic' | 'openai',
       });
 
       vscode.window.showInformationMessage(
-        `${provider.displayName} configuration saved successfully.`
+        `${provider.displayName} configuration saved successfully (API style: ${apiStyle.label}).`
       );
       this.output.appendLine(
-        `[Settings] Configuration saved for ${provider.displayName}`
+        `[Settings] Configuration saved for ${provider.displayName} (API style: ${apiStyle.value})`
       );
     } catch (error) {
       vscode.window.showErrorMessage(
@@ -207,12 +224,32 @@ export class SettingsManager {
         // Show partial URL for privacy
         const url = new URL(config.baseUrl);
         const host = url.hostname;
-        message += `${provider.displayName}: $(check) Configured (${host})\n`;
+        const style = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
+        message += `${provider.displayName}: $(check) Configured (${host}, ${style} style)\n`;
       } else {
         message += `${provider.displayName}: $(circle-large-outline) Not configured\n`;
       }
     }
 
     vscode.window.showInformationMessage(message, { modal: true });
+  }
+
+  /**
+   * Toggle API style for a provider
+   */
+  async toggleAPIStyle(providerId: string): Promise<void> {
+    const config = await this.config.getProviderConfig(providerId);
+    if (!config) {
+      vscode.window.showWarningMessage('Provider not configured. Please configure it first.');
+      return;
+    }
+
+    const newStyle = config.apiStyle === 'anthropic' ? 'openai' : 'anthropic';
+    await this.config.updateAPIStyle(providerId, newStyle);
+
+    vscode.window.showInformationMessage(
+      `API style changed to ${newStyle === 'anthropic' ? 'Anthropic' : 'OpenAI'}.`
+    );
+    this.output.appendLine(`[Settings] API style toggled to ${newStyle} for ${providerId}`);
   }
 }

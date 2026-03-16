@@ -2,13 +2,17 @@
  * OpenAI-compatible provider adapter
  * Implements chat functionality using OpenAI-compatible APIs
  * Fetches model list from remote API
+ * Supports both OpenAI and Anthropic message formats via Vercel AI SDK
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
+import type { ModelInfo, ProviderMessage, ChatOptions, APIStyle } from '../../types/index.js';
 import { BaseProviderAdapter } from '../BaseProvider.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ConfigManager } from '../../config/ConfigManager.js';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { streamText } from 'ai';
 import * as vscode from 'vscode';
 
 /**
@@ -237,40 +241,16 @@ export class OpenAIAdapter extends BaseProviderAdapter {
     // Extract model name (remove 'default:' prefix if present)
     const modelName = model.includes(':') ? model.split(':')[1] : model;
 
-    this.log(`Starting chat with model: ${modelName}`);
+    this.log(`Starting chat with model: ${modelName}, API style: ${config.apiStyle}`);
     this.log(`Messages count: ${messages.length}`);
 
-    const requestBody = this.formatRequest(modelName, messages, options);
-
-    // Build API URL - use baseUrl directly
-    const apiUrl = config.baseUrl.endsWith('/')
-      ? `${config.baseUrl}chat/completions`
-      : `${config.baseUrl}/chat/completions`;
-
-    this.log(`Chat API URL: ${apiUrl}`);
-
     try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        signal,
-      });
-
-      this.log(`Chat API response status: ${response.status} ${response.statusText}`);
-
-      if (!response.ok) {
-        const body = await response.text();
-        this.log(`Chat API error response: ${body.substring(0, 200)}`);
-        const error = await ErrorHandler.createAPIError(response, body);
-        throw error;
+      // Create the appropriate provider based on API style
+      if (config.apiStyle === 'anthropic') {
+        await this.chatWithAnthropicStyle(modelName, messages, options, onChunk, signal, config);
+      } else {
+        await this.chatWithOpenAIStyle(modelName, messages, options, onChunk, signal, config);
       }
-
-      // Parse SSE stream
-      await this.parseStream(response, onChunk, signal);
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -283,6 +263,197 @@ export class OpenAIAdapter extends BaseProviderAdapter {
     }
 
     this.log('Chat request completed successfully');
+  }
+
+  /**
+   * Chat using OpenAI-style API (via Vercel AI SDK for message conversion)
+   */
+  private async chatWithOpenAIStyle(
+    modelName: string,
+    messages: ProviderMessage[],
+    options: ChatOptions,
+    onChunk: (chunk: string) => void,
+    signal: AbortSignal,
+    config: { token: string; baseUrl: string }
+  ): Promise<void> {
+    const requestBody = this.formatRequest(modelName, messages, options);
+
+    // Build API URL - use baseUrl directly
+    const apiUrl = config.baseUrl.endsWith('/')
+      ? `${config.baseUrl}chat/completions`
+      : `${config.baseUrl}/chat/completions`;
+
+    this.log(`Chat API URL: ${apiUrl}`);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+
+    this.log(`Chat API response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const body = await response.text();
+      this.log(`Chat API error response: ${body.substring(0, 200)}`);
+      const error = await ErrorHandler.createAPIError(response, body);
+      throw error;
+    }
+
+    // Parse SSE stream
+    await this.parseStream(response, onChunk, signal);
+  }
+
+  /**
+   * Chat using Anthropic-style API (via Vercel AI SDK for message conversion)
+   */
+  private async chatWithAnthropicStyle(
+    modelName: string,
+    messages: ProviderMessage[],
+    options: ChatOptions,
+    onChunk: (chunk: string) => void,
+    signal: AbortSignal,
+    config: { token: string; baseUrl: string }
+  ): Promise<void> {
+    // Convert messages to Anthropic format
+    const anthropicMessages = this.convertToAnthropicMessages(messages);
+
+    // Build request body for Anthropic-style API
+    const requestBody = {
+      model: modelName,
+      messages: anthropicMessages,
+      max_tokens: options.maxTokens || 4096,
+      temperature: options.temperature ?? 0.7,
+      stream: true,
+    };
+
+    // Build API URL - assume messages endpoint for Anthropic-style
+    const apiUrl = config.baseUrl.endsWith('/')
+      ? `${config.baseUrl}messages`
+      : `${config.baseUrl}/messages`;
+
+    this.log(`Anthropic-style API URL: ${apiUrl}`);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'x-api-key': config.token,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+
+    this.log(`Anthropic API response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const body = await response.text();
+      this.log(`Anthropic API error response: ${body.substring(0, 200)}`);
+      const error = await ErrorHandler.createAPIError(response, body);
+      throw error;
+    }
+
+    // Parse Anthropic SSE stream
+    await this.parseAnthropicStream(response, onChunk, signal);
+  }
+
+  /**
+   * Convert provider messages to Anthropic format
+   */
+  private convertToAnthropicMessages(messages: ProviderMessage[]): Array<{
+    role: string;
+    content: string;
+  }> {
+    const result: Array<{ role: string; content: string }> = [];
+
+    for (const msg of messages) {
+      // Anthropic doesn't support system messages in the messages array
+      // They should be passed as a separate system parameter
+      if (msg.role === 'system') {
+        continue;
+      }
+
+      let content = '';
+      if (typeof msg.content === 'string') {
+        content = msg.content;
+      } else if (Array.isArray(msg.content)) {
+        // Concatenate text parts
+        content = msg.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map(part => part.text)
+          .join('\n');
+      }
+
+      result.push({
+        role: msg.role,
+        content,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Parse Anthropic-style Server-Sent Events stream
+   */
+  private async parseAnthropicStream(
+    response: Response,
+    onChunk: (chunk: string) => void,
+    signal: AbortSignal
+  ): Promise<void> {
+    if (!response.body) {
+      throw new Error('Response body is empty');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done || signal.aborted) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data:')) {
+            continue;
+          }
+
+          const data = trimmed.slice(5).trim();
+
+          if (data === '[DONE]') {
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+
+            // Anthropic streaming format
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+              onChunk(parsed.delta.text);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   /**
