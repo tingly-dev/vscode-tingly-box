@@ -33,6 +33,10 @@ Works perfectly on its own too:
 
 ### Using with Tingly Box (Recommended)
 
+Install plugin and click status bar to open tingly box for vscode config webview and follow the guide.
+
+![alt text](./resource/guide.png)
+
 1. Install the VSCode extension
 2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box: Manage Settings`
 3. In the **"Using with Tingly Box"** tab, click **"🚀 Start"** to launch the Tingly Box server
@@ -57,16 +61,16 @@ Works perfectly on its own too:
 
 ## Commands
 
-| Command                                   | Description                              |
-| ----------------------------------------- | ---------------------------------------- |
-| `Tingly Box: Manage Settings`             | Open configuration webview               |
-| `Tingly Box: Start Server`                | Start Tingly Box server                  |
-| `Tingly Box: Stop Server`                 | Stop Tingly Box server                   |
-| `Tingly Box: Open Web UI`                 | Open Tingly Box web control panel        |
-| `Tingly Box: Show Status`                 | View current connection status           |
-| `Tingly Box: Fetch Models`                | Refresh available models from API        |
-| `Tingly Box: Manage Language Models`      | Open VSCode's language model management  |
-| `Tingly Box: Reset Configuration`         | Clear all saved configuration            |
+| Command                              | Description                             |
+| ------------------------------------ | --------------------------------------- |
+| `Tingly Box: Manage Settings`        | Open configuration webview              |
+| `Tingly Box: Start Server`           | Start Tingly Box server                 |
+| `Tingly Box: Stop Server`            | Stop Tingly Box server                  |
+| `Tingly Box: Open Web UI`            | Open Tingly Box web control panel       |
+| `Tingly Box: Show Status`            | View current connection status          |
+| `Tingly Box: Fetch Models`           | Refresh available models from API       |
+| `Tingly Box: Manage Language Models` | Open VSCode's language model management |
+| `Tingly Box: Reset Configuration`    | Clear all saved configuration           |
 
 ## Status Bar
 
