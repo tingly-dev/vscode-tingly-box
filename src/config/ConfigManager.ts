@@ -57,18 +57,19 @@ export class ConfigManager extends EventEmitter {
       this.secrets.get(styleKey),
     ]);
 
-    if (!token || !baseUrl) {
-      this.log(`Config for ${providerId}: incomplete (token: ${!!token}, baseUrl: ${!!baseUrl})`);
+    if (!baseUrl) {
+      this.log(`Config for ${providerId}: incomplete (baseUrl: ${!!baseUrl})`);
       return undefined;
     }
 
     // Use 'openai' as default API style if not set (for backwards compatibility)
     const style = (apiStyle as APIStyle) || 'openai';
 
-    // Log base URL (but mask token)
-    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, apiStyle=${style}, token=****${token.slice(-4)}`);
+    // Log base URL (token may be empty)
+    const maskedToken = token ? `****${token.slice(-4)}` : '(empty)';
+    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, apiStyle=${style}, token=${maskedToken}`);
 
-    return { token, baseUrl, apiStyle: style };
+    return { token: token || '', baseUrl, apiStyle: style };
   }
 
   /**
@@ -115,16 +116,11 @@ export class ConfigManager extends EventEmitter {
    * @throws Error if validation fails
    */
   async setProviderConfig(providerId: string, config: ProviderConfig): Promise<void> {
-    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, apiStyle=${config.apiStyle}, token=****${config.token.slice(-4)}`);
+    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, apiStyle=${config.apiStyle}, token=${config.token ? '****' + config.token.slice(-4) : '(empty)'}`);
 
     // Validate URL format
     if (!this.isValidUrl(config.baseUrl)) {
       throw new Error('Invalid base URL format');
-    }
-
-    // Validate token
-    if (!config.token || config.token.length === 0) {
-      throw new Error('Token cannot be empty');
     }
 
     // Validate API style
@@ -137,7 +133,7 @@ export class ConfigManager extends EventEmitter {
     const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
 
     await Promise.all([
-      this.secrets.store(tokenKey, config.token),
+      this.secrets.store(tokenKey, config.token || ''),
       this.secrets.store(urlKey, config.baseUrl),
       this.secrets.store(styleKey, config.apiStyle),
     ]);

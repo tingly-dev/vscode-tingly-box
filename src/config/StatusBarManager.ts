@@ -23,16 +23,13 @@ export class StatusBarManager implements vscode.Disposable {
       vscode.StatusBarAlignment.Right,
       100
     );
-    this.statusBarItem.name = 'Tingly Box API Style';
-
-    // Set up click handler to toggle style
-    this.statusBarItem.command = 'tinglybox.toggleStyle';
+    this.statusBarItem.name = 'Tingly Box';
 
     this.output.appendLine('[StatusBar] Status bar item created');
   }
 
   /**
-   * Initialize the status bar (show after provider is configured)
+   * Initialize the status bar
    */
   async initialize(): Promise<void> {
     await this.update();
@@ -45,8 +42,12 @@ export class StatusBarManager implements vscode.Disposable {
     try {
       const config = await this.config.getProviderConfig('default');
       if (!config) {
-        this.statusBarItem.hide();
-        this.output.appendLine('[StatusBar] Hiding status bar (provider not configured)');
+        // Show status bar with configuration prompt
+        this.statusBarItem.text = `$(warning) Tingly Box: Setup Required`;
+        this.statusBarItem.tooltip = 'Click to configure Base URL and API Token';
+        this.statusBarItem.command = 'tinglybox.manage';
+        this.statusBarItem.show();
+        this.output.appendLine('[StatusBar] Showing setup prompt');
         return;
       }
 
@@ -55,6 +56,7 @@ export class StatusBarManager implements vscode.Disposable {
 
       this.statusBarItem.text = `$(chip) Tingly Box: ${styleLabel}`;
       this.statusBarItem.tooltip = `Click to switch API style (current: ${styleLabel})`;
+      this.statusBarItem.command = 'tinglybox.toggleStyle';
       this.statusBarItem.show();
 
       this.output.appendLine(`[StatusBar] Updated display: ${styleLabel}`);

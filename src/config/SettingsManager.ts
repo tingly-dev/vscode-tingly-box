@@ -1,11 +1,10 @@
 /**
  * Settings manager
- * Provides UI for managing provider configurations
+ * Provides UI for managing Tingly Box configuration
  */
 
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
-import { ProviderRegistry } from '../provider/ProviderRegistry.js';
 
 /**
  * Manages the settings UI for configuring providers
@@ -22,35 +21,10 @@ export class SettingsManager {
   async openSettingsUI(): Promise<void> {
     this.output.appendLine('[Settings] Opening settings UI');
 
-    const providers = ProviderRegistry.list();
+    const providerId = 'default';
+    const provider = { displayName: 'Tingly Box' };
 
-    if (providers.length === 0) {
-      vscode.window.showInformationMessage('No providers available.');
-      return;
-    }
-
-    // Create quick pick items for each provider
-    const items = await Promise.all(
-      providers.map(async (provider) => ({
-        label: provider.displayName,
-        description: await this.config.hasConfiguredProvider(provider.id)
-          ? '$(check) Configured'
-          : '$(circle-large-outline) Not configured',
-        providerId: provider.id,
-        provider,
-      }))
-    );
-
-    const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select a provider to configure',
-      title: 'Tingly Box VSCode - Provider Settings',
-    });
-
-    if (!selected) {
-      return; // User cancelled
-    }
-
-    await this.configureProvider(selected.providerId, selected.provider);
+    await this.configureProvider(providerId, provider);
   }
 
   /**
@@ -131,27 +105,16 @@ export class SettingsManager {
       return; // User cancelled
     }
 
-    // Step 3: Get token
+    // Step 3: Get token (optional)
     const token = await vscode.window.showInputBox({
-      prompt: 'Enter your API Token',
+      prompt: 'Enter your API Token (optional - leave empty if not required)',
       password: true,
-      placeHolder: 'sk-... or Bearer token',
-      value: '',
-      validateInput: (value) => {
-        if (!value || value.trim().length === 0) {
-          return 'Token cannot be empty';
-        }
-
-        if (value.trim().length < 10) {
-          return 'Token appears to be too short';
-        }
-
-        return null;
-      },
+      placeHolder: 'sk-... or Bearer token (press Enter to skip)',
+      value: currentConfig?.token || '',
     });
 
-    if (!token) {
-      return; // User cancelled
+    if (token === undefined) {
+      return; // User cancelled (explicitly pressed Esc)
     }
 
     // Save configuration
@@ -209,29 +172,25 @@ export class SettingsManager {
    * Show configuration status
    */
   async showStatus(): Promise<void> {
-    const providers = ProviderRegistry.list();
+    const providerId = 'default';
+    const config = await this.config.getProviderConfig(providerId);
 
-    if (providers.length === 0) {
-      vscode.window.showInformationMessage('No providers available.');
-      return;
+    if (config) {
+      const url = new URL(config.baseUrl);
+      const host = url.hostname;
+      const style = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
+      const tokenStatus = config.token ? 'configured' : 'not set';
+
+      vscode.window.showInformationMessage(
+        `Tingly Box: $(check) Configured\nHost: ${host}\nAPI Style: ${style}\nToken: ${tokenStatus}`,
+        { modal: true }
+      );
+    } else {
+      vscode.window.showInformationMessage(
+        'Tingly Box: $(circle-large-outline) Not configured',
+        { modal: true }
+      );
     }
-
-    let message = 'Tingly Box VSCode - Provider Status:\n\n';
-
-    for (const provider of providers) {
-      const config = await this.config.getProviderConfig(provider.id);
-      if (config) {
-        // Show partial URL for privacy
-        const url = new URL(config.baseUrl);
-        const host = url.hostname;
-        const style = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
-        message += `${provider.displayName}: $(check) Configured (${host}, ${style} style)\n`;
-      } else {
-        message += `${provider.displayName}: $(circle-large-outline) Not configured\n`;
-      }
-    }
-
-    vscode.window.showInformationMessage(message, { modal: true });
   }
 
   /**
