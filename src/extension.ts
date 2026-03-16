@@ -8,6 +8,7 @@ import { SettingsManager } from './config/SettingsManager.js';
 import { StatusBarManager } from './config/StatusBarManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
 import { OpenAIAdapter } from './provider/adapters/OpenAIAdapter.js';
+import { AnthropicAdapter } from './provider/adapters/AnthropicAdapter.js';
 import { ErrorHandler } from './utils/ErrorHandler.js';
 
 /**
@@ -28,6 +29,10 @@ export function activate(context: vscode.ExtensionContext) {
     ProviderRegistry.register(openAIAdapter);
     output.appendLine('[TinglyBox] Registered OpenAI-compatible provider');
 
+    const anthropicAdapter = new AnthropicAdapter();
+    ProviderRegistry.register(anthropicAdapter);
+    output.appendLine('[TinglyBox] Registered Anthropic-compatible provider');
+
     // Create configuration manager
     const config = new ConfigManager(context.secrets, output);
 
@@ -39,10 +44,11 @@ export function activate(context: vscode.ExtensionContext) {
       output.appendLine('[TinglyBox] Configuration changed, clearing model cache...');
       provider.clearModelCache();
 
-      // Also clear the adapter's model cache
-      const adapter = ProviderRegistry.get('default');
-      if (adapter && typeof (adapter as any).clearModelCache === 'function') {
-        (adapter as any).clearModelCache();
+      // Clear all adapters' model cache
+      for (const adapter of ProviderRegistry.list()) {
+        if (typeof (adapter as any).clearModelCache === 'function') {
+          (adapter as any).clearModelCache();
+        }
       }
 
       // Update status bar
@@ -52,6 +58,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Inject config manager into providers that need it
     openAIAdapter.setConfigManager(config);
     openAIAdapter.setOutputChannel(output);
+
+    anthropicAdapter.setConfigManager(config);
+    anthropicAdapter.setOutputChannel(output);
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
@@ -93,32 +102,36 @@ export function activate(context: vscode.ExtensionContext) {
           output.appendLine('[TinglyBox] Fetching models from API...');
           output.show(true);
 
-          const adapter = ProviderRegistry.get('default');
-          if (!adapter) {
-            throw new Error('Provider adapter not found');
-          }
+          for (const adapter of ProviderRegistry.list()) {
+            try {
+              output.appendLine(`[TinglyBox] Fetching from ${adapter.id}...`);
 
-          // Check if adapter has fetchModels method
-          if (typeof (adapter as any).fetchModels !== 'function') {
-            throw new Error('Adapter does not support fetching models');
-          }
+              // Check if adapter has fetchModels method
+              if (typeof (adapter as any).fetchModels !== 'function') {
+                output.appendLine(`[TinglyBox] ${adapter.id} does not support fetching models`);
+                continue;
+              }
 
-          // Clear cache to force fresh fetch
-          (adapter as any).clearModelCache();
+              // Clear cache to force fresh fetch
+              (adapter as any).clearModelCache();
 
-          // Fetch models
-          const models = await (adapter as any).fetchModels();
+              // Fetch models
+              const models = await (adapter as any).fetchModels();
 
-          output.appendLine(`[TinglyBox] Successfully fetched ${models.length} models:`);
-          for (const model of models) {
-            output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
-            output.appendLine(`    ID: ${model.id}`);
-            output.appendLine(`    Input: ${model.maxInputTokens}, Output: ${model.maxOutputTokens} tokens`);
-            output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
+              output.appendLine(`[TinglyBox] Successfully fetched ${models.length} models from ${adapter.id}:`);
+              for (const model of models) {
+                output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
+                output.appendLine(`    ID: ${model.id}`);
+                output.appendLine(`    Input: ${model.maxInputTokens}, Output: ${model.maxOutputTokens} tokens`);
+                output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
+              }
+            } catch (error) {
+              output.appendLine(`[TinglyBox] Error fetching from ${adapter.id}: ${error}`);
+            }
           }
 
           vscode.window.showInformationMessage(
-            `Successfully fetched ${models.length} models from API. Check output for details.`
+            'Successfully fetched models from all providers. Check output for details.'
           );
         } catch (error) {
           output.appendLine(`[TinglyBox] Error fetching models: ${error}`);
@@ -142,23 +155,28 @@ export function activate(context: vscode.ExtensionContext) {
     // Auto-fetch models on activation ONLY if already configured
     (async () => {
       try {
-        const adapter = ProviderRegistry.get('default');
-        if (!adapter || typeof (adapter as any).fetchModels !== 'function') {
-          return;
-        }
+        for (const adapter of ProviderRegistry.list()) {
+          if (typeof (adapter as any).fetchModels !== 'function') {
+            continue;
+          }
 
-        // Check if provider is configured BEFORE attempting to fetch
-        const hasConfig = await config.hasConfiguredProvider('default');
-        if (!hasConfig) {
-          output.appendLine('[TinglyBox] Provider not configured. Run "Tingly Box VSCode: Manage Settings" to configure.');
-          return;
-        }
+          // Check if provider is configured BEFORE attempting to fetch
+          const hasConfig = await config.hasConfiguredProvider(adapter.id);
+          if (!hasConfig) {
+            output.appendLine(`[TinglyBox] ${adapter.id} not configured. Run "Tingly Box VSCode: Manage Settings" to configure.`);
+            continue;
+          }
 
-        output.appendLine('[TinglyBox] Fetching available models...');
-        const models = await (adapter as any).fetchModels();
-        output.appendLine(`[TinglyBox] Loaded ${models.length} models:`);
-        for (const model of models) {
-          output.appendLine(`  - ${model.name}`);
+          try {
+            output.appendLine(`[TinglyBox] Fetching models from ${adapter.id}...`);
+            const models = await (adapter as any).fetchModels();
+            output.appendLine(`[TinglyBox] Loaded ${models.length} models from ${adapter.id}:`);
+            for (const model of models) {
+              output.appendLine(`  - ${model.name}`);
+            }
+          } catch (error) {
+            output.appendLine(`[TinglyBox] Could not fetch models from ${adapter.id}: ${error}`);
+          }
         }
 
         // Initialize and update status bar after configuration is confirmed

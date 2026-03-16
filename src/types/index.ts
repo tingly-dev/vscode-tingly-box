@@ -53,7 +53,7 @@ export interface ModelInfo {
  */
 export interface ProviderMessage {
   role: 'user' | 'assistant' | 'system';
-  content: string | Array<TextPart | ImagePart>;
+  content: string | Array<TextPart | ImagePart | ToolCallPart | ToolResultPart>;
 }
 
 /**
@@ -70,6 +70,25 @@ export interface TextPart {
 export interface ImagePart {
   type: 'image';
   data: string; // base64 or URL
+}
+
+/**
+ * Tool call part in a message
+ */
+export interface ToolCallPart {
+  type: 'tool_call';
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/**
+ * Tool result part in a message
+ */
+export interface ToolResultPart {
+  type: 'tool_result';
+  id: string;
+  content: string | Array<{ type: 'text'; text: string }>;
 }
 
 /**
@@ -90,8 +109,17 @@ export interface ChatOptions {
  * OpenAI-specific message format
  */
 export interface OpenAIMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+  tool_call_id?: string;
 }
 
 /**
