@@ -242,6 +242,62 @@ export class ConfigWebviewProvider {
       border-radius: 2px;
       font-family: var(--vscode-editor-font-family);
     }
+
+    /* Tab Navigation */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--vscode-foreground);
+      font-size: var(--vscode-font-size);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+    }
+
+    .tab.active {
+      border-bottom-color: var(--vscode-textLink-foreground);
+      color: var(--vscode-textLink-foreground);
+      font-weight: 500;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .warning-box {
+      background: var(--vscode-editorWarning-background);
+      border-left: 4px solid var(--vscode-editorWarning-foreground);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .warning-box h3 {
+      margin-bottom: 8px;
+      color: var(--vscode-editorWarning-foreground);
+    }
+
+    .warning-box ul {
+      margin-left: 20px;
+    }
+
+    .warning-box li {
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
@@ -251,23 +307,62 @@ export class ConfigWebviewProvider {
     <!-- Status Message -->
     <div id="status" class="status hidden"></div>
 
-    <!-- Setup Guide -->
-    <div class="section">
-      <h2>📖 Setup Guide</h2>
-      <div class="guide">
-        <h3>Quick Start</h3>
-        <ol>
-          <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a>: <code>npx tingly-box@latest</code></li>
-          <li>Enter your Tingly Box Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
-          <li>Enter your API Token if required (optional for some setups)</li>
-          <li>Select your API Style (OpenAI or Anthropic)</li>
-          <li>Click "Save Configuration"</li>
-        </ol>
-      </div>
-      <p><strong>Need help?</strong> Visit <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">GitHub</a> or <a href="https://tingly.dev" target="_blank">tingly.dev</a></p>
+    <!-- Tab Navigation -->
+    <div class="tabs">
+      <button class="tab active" data-tab="with-tb">Using with Tingly Box</button>
+      <button class="tab" data-tab="custom">Custom Provider</button>
     </div>
 
-    <!-- Configuration Form -->
+    <!-- Tab: Using with Tingly Box -->
+    <div id="tab-with-tb" class="tab-content active">
+      <div class="section">
+        <h2>📖 Setup Guide</h2>
+        <div class="guide">
+          <h3>Quick Start</h3>
+          <ol>
+            <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a>: <code>npx tingly-box@latest</code></li>
+            <li>Enter your Tingly Box Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
+            <li>Enter your API Token if required (optional for some setups)</li>
+            <li>Select your API Style (OpenAI or Anthropic)</li>
+            <li>Click "Save Configuration"</li>
+          </ol>
+        </div>
+        <p><strong>Need help?</strong> Visit <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">vscode-tingly-box</a> or <a href="https://github.com/tingly-dev/tingly-box" target="_blank">tingly-box</a></p>
+      </div>
+    </div>
+
+    <!-- Tab: Custom Provider -->
+    <div id="tab-custom" class="tab-content">
+      <div class="warning-box">
+        <h3>⚠️ Recommendation: Use Tingly Box</h3>
+        <p>While you can use custom providers, we strongly recommend using <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a> for the best experience.</p>
+        <ul>
+          <li><strong>Provider Compatibility:</strong> Some providers may not follow standard API formats</li>
+          <li><strong>Model List API:</strong> Not all providers expose a models endpoint</li>
+          <li><strong>Frequent Switching:</strong> You may need to switch providers often</li>
+          <li><strong>Authentication:</strong> Different auth methods can cause issues</li>
+          <li><strong>Rate Limiting:</strong> Provider-specific limits may affect usage</li>
+        </ul>
+        <p><strong>Tingly Box</strong> handles all these complexities for you with a unified interface.</p>
+      </div>
+
+      <div class="section">
+        <h2>🔧 Custom Provider Configuration</h2>
+        <div class="guide">
+          <h3>Setup Instructions</h3>
+          <ol>
+            <li>Enter your provider's Base URL below</li>
+            <li>Enter your API Token if required</li>
+            <li>Select the appropriate API Style for your provider</li>
+            <li>Click "Test Connection" to verify</li>
+            <li>Click "Save Configuration" when done</li>
+          </ol>
+        </div>
+        <p><strong>Note:</strong> Make sure your provider supports the <code>/models</code> endpoint for automatic model discovery.</p>
+      </div>
+    </div>
+
+    <!-- Configuration Form (shared) -->
     <div class="section">
       <h2>⚙️ Configuration</h2>
       <form id="configForm">
@@ -307,20 +402,20 @@ export class ConfigWebviewProvider {
           </div>
         </div>
 
+        <!-- Current Status (inside form) -->
+        <div class="section" style="margin-top: 20px;">
+          <h2>📊 Current Status</h2>
+          <div id="currentStatus">
+            <p><em>Waiting for connection...</em></p>
+          </div>
+        </div>
+
         <div class="button-group">
           <button type="submit" id="saveBtn">💾 Save Configuration</button>
           <button type="button" id="testBtn" class="secondary">🔍 Test Connection</button>
           <button type="button" id="clearBtn" class="secondary">🗑️ Clear Configuration</button>
         </div>
       </form>
-    </div>
-
-    <!-- Current Status -->
-    <div class="section">
-      <h2>📊 Current Status</h2>
-      <div id="currentStatus">
-        <p>Loading...</p>
-      </div>
     </div>
   </div>
 
@@ -336,6 +431,24 @@ export class ConfigWebviewProvider {
     const testBtn = document.getElementById('testBtn');
     const clearBtn = document.getElementById('clearBtn');
     const currentStatusEl = document.getElementById('currentStatus');
+
+    // Tab Navigation
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.getAttribute('data-tab');
+
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+
+        // Add active class to clicked tab and corresponding content
+        tab.classList.add('active');
+        document.getElementById('tab-' + targetTab).classList.add('active');
+      });
+    });
 
     // Show status message
     function showStatus(message, type = 'info') {
@@ -413,9 +526,9 @@ export class ConfigWebviewProvider {
 
         case 'testResult':
           if (message.success) {
-            showStatus('✅ Connection successful! Found ' + message.modelCount + ' models.', 'success');
+            currentStatusEl.innerHTML = '<p style="color: var(--vscode-testingIconPassedForeground);">✅ Connection successful! Found ' + message.modelCount + ' models.</p>';
           } else {
-            showStatus('❌ Connection failed: ' + message.error, 'error');
+            currentStatusEl.innerHTML = '<p style="color: var(--vscode-errorForeground);">❌ Connection failed: ' + message.error + '</p>';
           }
           break;
       }
