@@ -12,7 +12,7 @@ import { ConfigManager } from './ConfigManager.js';
  * Webview message types
  */
 export interface WebviewMessage {
-    type: 'save' | 'test' | 'clear' | 'fetchModels';
+    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer';
     baseUrl?: string;
     token?: string;
     apiStyle?: APIStyle;
@@ -52,6 +52,20 @@ export interface FetchModelsMessage extends WebviewMessage {
 }
 
 /**
+ * StartServer message from webview
+ */
+export interface StartServerMessage extends WebviewMessage {
+    type: 'startServer';
+}
+
+/**
+ * StopServer message from webview
+ */
+export interface StopServerMessage extends WebviewMessage {
+    type: 'stopServer';
+}
+
+/**
  * Type guard for SaveMessage
  */
 function isSaveMessage(msg: WebviewMessage): msg is SaveMessage {
@@ -82,6 +96,20 @@ function isClearMessage(msg: WebviewMessage): msg is ClearMessage {
  */
 function isFetchModelsMessage(msg: WebviewMessage): msg is FetchModelsMessage {
     return msg.type === 'fetchModels';
+}
+
+/**
+ * Type guard for StartServerMessage
+ */
+function isStartServerMessage(msg: WebviewMessage): msg is StartServerMessage {
+    return msg.type === 'startServer';
+}
+
+/**
+ * Type guard for StopServerMessage
+ */
+function isStopServerMessage(msg: WebviewMessage): msg is StopServerMessage {
+    return msg.type === 'stopServer';
 }
 
 export class ConfigWebviewProvider {
@@ -397,7 +425,7 @@ export class ConfigWebviewProvider {
         <div class="guide">
           <h3>Quick Start</h3>
           <ol>
-            <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a>: <code>npx tingly-box@latest</code></li>
+            <li>Click "Start" below (or run <code>npx tingly-box@latest</code> in terminal)</li>
             <li>Enter your Tingly Box Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
             <li>Enter your API Token if required (optional for some setups)</li>
             <li>Select your API Style (OpenAI or Anthropic)</li>
@@ -405,6 +433,18 @@ export class ConfigWebviewProvider {
           </ol>
         </div>
         <p><strong>Need help?</strong> Visit <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">vscode-tingly-box</a> or <a href="https://github.com/tingly-dev/tingly-box" target="_blank">tingly-box</a></p>
+      </div>
+
+      <!-- Server Control Section -->
+      <div class="section">
+        <h2>🖥️ Tingly Box - Your Intelligence, Orchestrated</h2>
+        <p style="color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 12px;">
+          Start the Tingly Box service, then configure your connection below.
+        </p>
+        <div class="button-group">
+          <button type="button" id="startServerBtn" class="secondary">🚀 Start</button>
+          <button type="button" id="stopServerBtn" class="secondary">🛑 Stop</button>
+        </div>
       </div>
     </div>
 
@@ -509,6 +549,8 @@ export class ConfigWebviewProvider {
     const testBtn = document.getElementById('testBtn');
     const fetchModelsBtn = document.getElementById('fetchModelsBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const startServerBtn = document.getElementById('startServerBtn');
+    const stopServerBtn = document.getElementById('stopServerBtn');
     const currentStatusEl = document.getElementById('currentStatus');
 
     // Tab Navigation
@@ -578,6 +620,36 @@ export class ConfigWebviewProvider {
         sendMessage('clear');
       }
     });
+
+    // Start server
+    if (startServerBtn) {
+      startServerBtn.addEventListener('click', () => {
+        startServerBtn.disabled = true;
+        startServerBtn.textContent = '⏳ Starting...';
+        sendMessage('startServer');
+        setTimeout(() => {
+          startServerBtn.disabled = false;
+          startServerBtn.textContent = '🚀 Start';
+        }, 3000);
+      });
+    } else {
+      console.error('startServerBtn not found');
+    }
+
+    // Stop server
+    if (stopServerBtn) {
+      stopServerBtn.addEventListener('click', () => {
+        stopServerBtn.disabled = true;
+        stopServerBtn.textContent = '⏳ Stopping...';
+        sendMessage('stopServer');
+        setTimeout(() => {
+          stopServerBtn.disabled = false;
+          stopServerBtn.textContent = '🛑 Stop';
+        }, 3000);
+      });
+    } else {
+      console.error('stopServerBtn not found');
+    }
 
     // Receive messages from extension
     window.addEventListener('message', (event) => {
@@ -684,6 +756,22 @@ export class ConfigWebviewProvider {
                     await this.handleFetchModels();
                 } else {
                     this.sendMessage('error', { message: 'Invalid fetchModels message format' });
+                }
+                break;
+
+            case 'startServer':
+                if (isStartServerMessage(msg)) {
+                    await this.handleStartServer();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid startServer message format' });
+                }
+                break;
+
+            case 'stopServer':
+                if (isStopServerMessage(msg)) {
+                    await this.handleStopServer();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid stopServer message format' });
                 }
                 break;
 
@@ -808,6 +896,34 @@ export class ConfigWebviewProvider {
             this.sendMessage('fetchModelsEnd');
         } catch (error) {
             this.sendMessage('fetchModelsEnd');
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Handle start server - trigger the startServer command
+     */
+    private async handleStartServer(): Promise<void> {
+        try {
+            // Execute the startServer command
+            await vscode.commands.executeCommand('tinglybox.startServer');
+        } catch (error) {
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Handle stop server - trigger the stopServer command
+     */
+    private async handleStopServer(): Promise<void> {
+        try {
+            // Execute the stopServer command
+            await vscode.commands.executeCommand('tinglybox.stopServer');
+        } catch (error) {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)
             });

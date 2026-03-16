@@ -41,6 +41,16 @@
     ],
     "commands": [
       {
+        "command": "tinglybox.startServer",
+        "title": "Start Server",
+        "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.stopServer",
+        "title": "Stop Server",
+        "category": "Tingly Box"
+      },
+      {
         "command": "tinglybox.status",
         "title": "Show Status",
         "category": "Tingly Box"
