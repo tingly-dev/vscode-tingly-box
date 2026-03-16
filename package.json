@@ -69,6 +69,11 @@
         "command": "tinglybox.resetConfig",
         "title": "Tingly Box: Reset Configuration",
         "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.openConfigWebview",
+        "title": "Tingly Box: Open Configuration Webview",
+        "category": "Tingly Box"
       }
     ],
     "configuration": {

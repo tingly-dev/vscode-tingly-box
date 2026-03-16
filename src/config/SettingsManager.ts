@@ -97,7 +97,7 @@ export class SettingsManager {
       ],
       {
         placeHolder: 'Select API message style',
-        title: 'Tingly Box VSCode - API Style Selection'
+        title: 'Tingly Box VSCode - API Style Selection',
       }
     );
 

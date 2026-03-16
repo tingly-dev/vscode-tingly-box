@@ -1,0 +1,570 @@
+/**
+ * Configuration Webview Provider
+ * Provides a webview-based UI for configuring Tingly Box
+ */
+
+import * as vscode from 'vscode';
+import { ConfigManager } from './ConfigManager.js';
+import type { ProviderConfig, APIStyle } from '../types/index.js';
+
+export class ConfigWebviewProvider {
+  private currentPanel?: vscode.WebviewPanel;
+  private disposables: vscode.Disposable[] = [];
+
+  constructor(
+    private readonly config: ConfigManager,
+    private readonly outputChannel: vscode.OutputChannel,
+    private readonly extensionUri: vscode.Uri
+  ) {}
+
+  /**
+   * Show or create the configuration webview
+   */
+  async show(): Promise<void> {
+    if (this.currentPanel) {
+      this.currentPanel.reveal();
+      return;
+    }
+
+    this.currentPanel = vscode.window.createWebviewPanel(
+      'tinglybox.config',
+      'Tingly Box Configuration',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')]
+      }
+    );
+
+    this.currentPanel.webview.html = this.getWebviewContent();
+
+    // Handle messages from the webview
+    this.currentPanel.webview.onDidReceiveMessage(
+      async (message) => {
+        await this.handleMessage(message);
+      },
+      undefined,
+      this.disposables
+    );
+
+    // Handle panel close
+    this.currentPanel.onDidDispose(
+      () => {
+        this.currentPanel = undefined;
+        this.disposables.forEach(d => d.dispose());
+        this.disposables = [];
+      },
+      undefined,
+      this.disposables
+    );
+
+    // Send current config to webview
+    await this.sendCurrentConfig();
+  }
+
+  /**
+   * Get the webview HTML content
+   */
+  private getWebviewContent(): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tingly Box Configuration</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: var(--vscode-foreground);
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: var(--vscode-foreground);
+    }
+
+    .section {
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: var(--vscode-foreground);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 2px;
+      color: var(--vscode-input-foreground);
+      font-size: var(--vscode-font-size);
+    }
+
+    input:focus,
+    select:focus {
+      outline: 1px solid var(--vscode-focusBorder);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+    }
+
+    button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+
+    button.secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+
+    button.secondary:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .status.success {
+      background: var(--vscode-testingIconPassedForeground);
+      color: var(--vscode-editor-foreground);
+    }
+
+    .status.error {
+      background: var(--vscode-errorBackground);
+      color: var(--vscode-errorForeground);
+    }
+
+    .status.info {
+      background: var(--vscode-infoBackground);
+      color: var(--vscode-infoForeground);
+    }
+
+    .status.hidden {
+      display: none;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 16px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .radio-option input[type="radio"] {
+      margin: 0;
+    }
+
+    .guide {
+      background: var(--vscode-textBlockQuote-background);
+      border-left: 4px solid var(--vscode-textBlockQuote-border);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .guide h3 {
+      margin-bottom: 8px;
+      color: var(--vscode-foreground);
+    }
+
+    .guide ol {
+      margin-left: 20px;
+    }
+
+    .guide li {
+      margin-bottom: 8px;
+    }
+
+    .guide code {
+      background: var(--vscode-textCodeBlock-background);
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-family: var(--vscode-editor-font-family);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Tingly Box Configuration</h1>
+
+    <!-- Status Message -->
+    <div id="status" class="status hidden"></div>
+
+    <!-- Setup Guide -->
+    <div class="section">
+      <h2>📖 Setup Guide</h2>
+      <div class="guide">
+        <h3>Quick Start</h3>
+        <ol>
+          <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a></li>
+          <li>Enter your Tingly Box Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
+          <li>Enter your API Token if required (optional for some setups)</li>
+          <li>Select your API Style (OpenAI or Anthropic)</li>
+          <li>Click "Save Configuration"</li>
+        </ol>
+      </div>
+      <p><strong>Need help?</strong> Visit <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">GitHub</a> or <a href="https://tingly.dev" target="_blank">tingly.dev</a></p>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="section">
+      <h2>⚙️ Configuration</h2>
+      <form id="configForm">
+        <div class="form-group">
+          <label for="baseUrl">Base URL *</label>
+          <input
+            type="text"
+            id="baseUrl"
+            placeholder="http://localhost:12580/tingly/openai"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="token">API Token (Optional)</label>
+          <input
+            type="password"
+            id="token"
+            placeholder="sk-... or Bearer token (leave empty if not required)"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>API Style *</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="styleOpenAI" name="apiStyle" value="openai" checked>
+              <label for="styleOpenAI">OpenAI Style</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="styleAnthropic" name="apiStyle" value="anthropic">
+              <label for="styleAnthropic">Anthropic Style</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" id="saveBtn">💾 Save Configuration</button>
+          <button type="button" id="testBtn" class="secondary">🔍 Test Connection</button>
+          <button type="button" id="clearBtn" class="secondary">🗑️ Clear Configuration</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Current Status -->
+    <div class="section">
+      <h2>📊 Current Status</h2>
+      <div id="currentStatus">
+        <p>Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+
+    // UI Elements
+    const statusEl = document.getElementById('status');
+    const form = document.getElementById('configForm');
+    const baseUrlInput = document.getElementById('baseUrl');
+    const tokenInput = document.getElementById('token');
+    const saveBtn = document.getElementById('saveBtn');
+    const testBtn = document.getElementById('testBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const currentStatusEl = document.getElementById('currentStatus');
+
+    // Show status message
+    function showStatus(message, type = 'info') {
+      statusEl.textContent = message;
+      statusEl.className = 'status ' + type;
+      statusEl.classList.remove('hidden');
+
+      setTimeout(() => {
+        statusEl.classList.add('hidden');
+      }, 5000);
+    }
+
+    // Send message to extension
+    function sendMessage(type, data) {
+      vscode.postMessage({ type, ...data });
+    }
+
+    // Handle form submission
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const apiStyle = document.querySelector('input[name="apiStyle"]:checked').value;
+
+      sendMessage('save', {
+        baseUrl: baseUrlInput.value,
+        token: tokenInput.value,
+        apiStyle: apiStyle
+      });
+    });
+
+    // Test connection
+    testBtn.addEventListener('click', () => {
+      sendMessage('test', {
+        baseUrl: baseUrlInput.value,
+        token: tokenInput.value
+      });
+    });
+
+    // Clear configuration
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear the configuration?')) {
+        sendMessage('clear');
+      }
+    });
+
+    // Receive messages from extension
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+
+      switch (message.type) {
+        case 'config':
+          // Update form with current config
+          if (message.config) {
+            baseUrlInput.value = message.config.baseUrl || '';
+            tokenInput.value = message.config.token || '';
+            const radio = document.querySelector(\`input[name="apiStyle"][value="\${message.config.apiStyle}"]\`);
+            if (radio) radio.checked = true;
+          }
+          break;
+
+        case 'status':
+          // Update current status display
+          currentStatusEl.innerHTML = message.html;
+          break;
+
+        case 'saved':
+          showStatus('✅ Configuration saved successfully!', 'success');
+          break;
+
+        case 'error':
+          showStatus('❌ ' + message.message, 'error');
+          break;
+
+        case 'testResult':
+          if (message.success) {
+            showStatus('✅ Connection successful! Found ' + message.modelCount + ' models.', 'success');
+          } else {
+            showStatus('❌ Connection failed: ' + message.error, 'error');
+          }
+          break;
+      }
+    });
+  </script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Handle messages from the webview
+   */
+  private async handleMessage(message: any): Promise<void> {
+    this.outputChannel.appendLine(`[Webview] Received message: ${message.type}`);
+
+    switch (message.type) {
+      case 'save':
+        await this.handleSave(message);
+        break;
+
+      case 'test':
+        await this.handleTest(message);
+        break;
+
+      case 'clear':
+        await this.handleClear();
+        break;
+
+      default:
+        this.outputChannel.appendLine(`[Webview] Unknown message type: ${message.type}`);
+    }
+  }
+
+  /**
+   * Handle save configuration
+   */
+  private async handleSave(message: { baseUrl: string; token: string; apiStyle: APIStyle }): Promise<void> {
+    try {
+      await this.config.setProviderConfig('default', {
+        baseUrl: message.baseUrl.trim(),
+        token: message.token.trim(),
+        apiStyle: message.apiStyle,
+      });
+
+      this.sendMessage('saved');
+      await this.sendStatus();
+    } catch (error) {
+      this.sendMessage('error', {
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Handle test connection
+   */
+  private async handleTest(message: { baseUrl: string; token: string }): Promise<void> {
+    try {
+      // Temporarily save config for testing
+      await this.config.setProviderConfig('default', {
+        baseUrl: message.baseUrl.trim(),
+        token: message.token.trim(),
+        apiStyle: 'openai',
+      });
+
+      // Try to fetch models
+      const config = await this.config.getProviderConfig('default');
+      if (!config) {
+        throw new Error('Configuration not found');
+      }
+
+      // Test by making a request to the models endpoint
+      const modelsUrl = config.baseUrl.endsWith('/')
+        ? `${config.baseUrl}models`
+        : `${config.baseUrl}/models`;
+
+      const response = await fetch(modelsUrl, {
+        headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const modelCount = data.data?.length || 0;
+
+      this.sendMessage('testResult', { success: true, modelCount });
+    } catch (error) {
+      this.sendMessage('testResult', {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Handle clear configuration
+   */
+  private async handleClear(): Promise<void> {
+    try {
+      await this.config.removeProviderConfig('default');
+      this.sendMessage('cleared');
+      await this.sendCurrentConfig();
+      await this.sendStatus();
+    } catch (error) {
+      this.sendMessage('error', {
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Send current configuration to webview
+   */
+  private async sendCurrentConfig(): Promise<void> {
+    const config = await this.config.getProviderConfig('default');
+    this.sendMessage('config', { config });
+  }
+
+  /**
+   * Send status information to webview
+   */
+  private async sendStatus(): Promise<void> {
+    const config = await this.config.getProviderConfig('default');
+
+    let html: string;
+    if (config) {
+      const url = new URL(config.baseUrl);
+      const styleLabel = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
+      const tokenStatus = config.token ? '✅ Set' : '⚠️ Not set';
+
+      html = `<p><strong>Base URL:</strong> ${url.hostname}:${url.port || '80'}</p>
+        <p><strong>API Style:</strong> ${styleLabel}</p>
+        <p><strong>Token:</strong> ${tokenStatus}</p>
+        <p><strong>Provider ID:</strong> default</p>`;
+    } else {
+      html = '<p><strong>⚠️ Status:</strong> Not configured</p>';
+    }
+
+    this.sendMessage('status', { html });
+  }
+
+  /**
+   * Send message to webview
+   */
+  private sendMessage(type: string, data?: any): void {
+    this.currentPanel?.webview.postMessage({ type, ...data });
+  }
+
+  /**
+   * Dispose of resources
+   */
+  dispose(): void {
+    this.currentPanel?.dispose();
+    this.disposables.forEach(d => d.dispose());
+  }
+}

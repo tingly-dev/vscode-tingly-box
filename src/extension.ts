@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { TinglyBoxProvider } from './provider/TinglyBoxProvider.js';
 import { ConfigManager } from './config/ConfigManager.js';
 import { SettingsManager } from './config/SettingsManager.js';
+import { ConfigWebviewProvider } from './config/ConfigWebviewProvider.js';
 import { StatusBarManager } from './config/StatusBarManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
 import { UnifiedAdapter } from './provider/adapters/UnifiedAdapter.js';
@@ -54,6 +55,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
+
+    // Create webview provider
+    const webviewProvider = new ConfigWebviewProvider(config, output, context.extensionUri);
 
     // Create status bar manager
     const statusBar = new StatusBarManager(config, output);
@@ -157,6 +161,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(resetConfigCommand);
     output.appendLine('[Tingly Box] Registered reset configuration command');
+
+    // Register open configuration webview command
+    const openWebviewCommand = vscode.commands.registerCommand(
+      'tinglybox.openConfigWebview',
+      async () => {
+        await webviewProvider.show();
+      }
+    );
+    context.subscriptions.push(openWebviewCommand);
+    output.appendLine('[Tingly Box] Registered configuration webview command');
 
     // Auto-fetch models on activation ONLY if already configured
     (async () => {
