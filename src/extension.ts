@@ -2,14 +2,15 @@
 import * as vscode from 'vscode';
 
 // Extension components
-import { TinglyBoxProvider } from './provider/TinglyBoxProvider.js';
 import { ConfigManager } from './config/ConfigManager.js';
-import { SettingsManager } from './config/SettingsManager.js';
 import { ConfigWebviewProvider } from './config/ConfigWebviewProvider.js';
+import { SettingsManager } from './config/SettingsManager.js';
 import { StatusBarManager } from './config/StatusBarManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
+import { TinglyBoxProvider } from './provider/TinglyBoxProvider.js';
 import { UnifiedAdapter } from './provider/adapters/UnifiedAdapter.js';
 import { ErrorHandler } from './utils/ErrorHandler.js';
+import { NoticeHelper } from './utils/NoticeHelper.js';
 
 /**
  * Extension activation function
@@ -110,24 +111,16 @@ export function activate(context: vscode.ExtensionContext) {
             output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
           }
 
-          // Prompt user to reload window to refresh VSCode's model list
-          const shouldReload = await vscode.window.showInformationMessage(
-            `Successfully fetched ${models.length} models. Please reload the window to refresh the model list.`,
-            'Reload Window',
-            'Later'
-          );
-
-          if (shouldReload === 'Reload Window') {
-            await vscode.commands.executeCommand('workbench.action.reloadWindow');
-          }
-        } catch (error) {
-          output.appendLine(`[Tingly Box] Error fetching models: ${error}`);
-          ErrorHandler.handle(error, output);
-        }
-      }
-    );
-    context.subscriptions.push(fetchModelsCommand);
-    output.appendLine('[Tingly Box] Registered fetch models command');
+                    // Prompt user to reload window to refresh VSCode's model list
+                    await NoticeHelper.promptReload(`Successfully fetched ${models.length} models.`);
+                } catch (error) {
+                    output.appendLine(`[Tingly Box] Error fetching models: ${error}`);
+                    ErrorHandler.handle(error, output);
+                }
+            }
+        );
+        context.subscriptions.push(fetchModelsCommand);
+        output.appendLine('[Tingly Box] Registered fetch models command');
 
     // Register manage language models command
     const manageLanguageModelsCommand = vscode.commands.registerCommand(

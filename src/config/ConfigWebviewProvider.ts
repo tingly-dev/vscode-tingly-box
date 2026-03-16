@@ -4,131 +4,146 @@
  */
 
 import * as vscode from 'vscode';
-import { ConfigManager } from './ConfigManager.js';
 import type { APIStyle } from '../types/index.js';
+import { NoticeHelper } from '../utils/NoticeHelper.js';
+import { ConfigManager } from './ConfigManager.js';
 
 /**
  * Webview message types
  */
 export interface WebviewMessage {
-  type: 'save' | 'test' | 'clear';
-  baseUrl?: string;
-  token?: string;
-  apiStyle?: APIStyle;
+    type: 'save' | 'test' | 'clear' | 'fetchModels';
+    baseUrl?: string;
+    token?: string;
+    apiStyle?: APIStyle;
 }
 
 /**
  * Save message from webview
  */
 export interface SaveMessage extends WebviewMessage {
-  type: 'save';
-  baseUrl: string;
-  token: string;
-  apiStyle: APIStyle;
+    type: 'save';
+    baseUrl: string;
+    token: string;
+    apiStyle: APIStyle;
 }
 
 /**
  * Test message from webview
  */
 export interface TestMessage extends WebviewMessage {
-  type: 'test';
-  baseUrl: string;
-  token: string;
+    type: 'test';
+    baseUrl: string;
+    token: string;
 }
 
 /**
  * Clear message from webview
  */
 export interface ClearMessage extends WebviewMessage {
-  type: 'clear';
+    type: 'clear';
+}
+
+/**
+ * FetchModels message from webview
+ */
+export interface FetchModelsMessage extends WebviewMessage {
+    type: 'fetchModels';
 }
 
 /**
  * Type guard for SaveMessage
  */
 function isSaveMessage(msg: WebviewMessage): msg is SaveMessage {
-  return msg.type === 'save' &&
-    typeof msg.baseUrl === 'string' &&
-    typeof msg.token === 'string' &&
-    (msg.apiStyle === 'anthropic' || msg.apiStyle === 'openai');
+    return msg.type === 'save' &&
+        typeof msg.baseUrl === 'string' &&
+        typeof msg.token === 'string' &&
+        (msg.apiStyle === 'anthropic' || msg.apiStyle === 'openai');
 }
 
 /**
  * Type guard for TestMessage
  */
 function isTestMessage(msg: WebviewMessage): msg is TestMessage {
-  return msg.type === 'test' &&
-    typeof msg.baseUrl === 'string' &&
-    typeof msg.token === 'string';
+    return msg.type === 'test' &&
+        typeof msg.baseUrl === 'string' &&
+        typeof msg.token === 'string';
 }
 
 /**
  * Type guard for ClearMessage
  */
 function isClearMessage(msg: WebviewMessage): msg is ClearMessage {
-  return msg.type === 'clear';
+    return msg.type === 'clear';
+}
+
+/**
+ * Type guard for FetchModelsMessage
+ */
+function isFetchModelsMessage(msg: WebviewMessage): msg is FetchModelsMessage {
+    return msg.type === 'fetchModels';
 }
 
 export class ConfigWebviewProvider {
-  private currentPanel?: vscode.WebviewPanel;
-  private disposables: vscode.Disposable[] = [];
+    private currentPanel?: vscode.WebviewPanel;
+    private disposables: vscode.Disposable[] = [];
 
-  constructor(
-    private readonly config: ConfigManager,
-    private readonly outputChannel: vscode.OutputChannel,
-    private readonly extensionUri: vscode.Uri
-  ) {}
+    constructor(
+        private readonly config: ConfigManager,
+        private readonly outputChannel: vscode.OutputChannel,
+        private readonly extensionUri: vscode.Uri
+    ) { }
 
-  /**
-   * Show or create the configuration webview
-   */
-  async show(): Promise<void> {
-    if (this.currentPanel) {
-      this.currentPanel.reveal();
-      return;
+    /**
+     * Show or create the configuration webview
+     */
+    async show(): Promise<void> {
+        if (this.currentPanel) {
+            this.currentPanel.reveal();
+            return;
+        }
+
+        this.currentPanel = vscode.window.createWebviewPanel(
+            'tinglybox.config',
+            'Tingly Box Configuration',
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')]
+            }
+        );
+
+        this.currentPanel.webview.html = this.getWebviewContent();
+
+        // Handle messages from the webview
+        this.currentPanel.webview.onDidReceiveMessage(
+            async (message) => {
+                await this.handleMessage(message);
+            },
+            undefined,
+            this.disposables
+        );
+
+        // Handle panel close
+        this.currentPanel.onDidDispose(
+            () => {
+                this.currentPanel = undefined;
+                this.disposables.forEach(d => d.dispose());
+                this.disposables = [];
+            },
+            undefined,
+            this.disposables
+        );
+
+        // Send current config to webview
+        await this.sendCurrentConfig();
     }
 
-    this.currentPanel = vscode.window.createWebviewPanel(
-      'tinglybox.config',
-      'Tingly Box Configuration',
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')]
-      }
-    );
-
-    this.currentPanel.webview.html = this.getWebviewContent();
-
-    // Handle messages from the webview
-    this.currentPanel.webview.onDidReceiveMessage(
-      async (message) => {
-        await this.handleMessage(message);
-      },
-      undefined,
-      this.disposables
-    );
-
-    // Handle panel close
-    this.currentPanel.onDidDispose(
-      () => {
-        this.currentPanel = undefined;
-        this.disposables.forEach(d => d.dispose());
-        this.disposables = [];
-      },
-      undefined,
-      this.disposables
-    );
-
-    // Send current config to webview
-    await this.sendCurrentConfig();
-  }
-
-  /**
-   * Get the webview HTML content
-   */
-  private getWebviewContent(): string {
-    return `<!DOCTYPE html>
+    /**
+     * Get the webview HTML content
+     */
+    private getWebviewContent(): string {
+        return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -475,6 +490,7 @@ export class ConfigWebviewProvider {
         <div class="button-group">
           <button type="submit" id="saveBtn">💾 Save Configuration</button>
           <button type="button" id="testBtn" class="secondary">🔍 Test Connection</button>
+          <button type="button" id="fetchModelsBtn" class="secondary">🔄 Update Model List</button>
           <button type="button" id="clearBtn" class="secondary">🗑️ Clear Configuration</button>
         </div>
       </form>
@@ -491,6 +507,7 @@ export class ConfigWebviewProvider {
     const tokenInput = document.getElementById('token');
     const saveBtn = document.getElementById('saveBtn');
     const testBtn = document.getElementById('testBtn');
+    const fetchModelsBtn = document.getElementById('fetchModelsBtn');
     const clearBtn = document.getElementById('clearBtn');
     const currentStatusEl = document.getElementById('currentStatus');
 
@@ -548,6 +565,13 @@ export class ConfigWebviewProvider {
       });
     });
 
+    // Update model list
+    fetchModelsBtn.addEventListener('click', () => {
+      fetchModelsBtn.disabled = true;
+      fetchModelsBtn.textContent = '⏳ Updating...';
+      sendMessage('fetchModels');
+    });
+
     // Clear configuration
     clearBtn.addEventListener('click', () => {
       if (confirm('Are you sure you want to clear the configuration?')) {
@@ -600,198 +624,239 @@ export class ConfigWebviewProvider {
           }
           currentStatusEl.appendChild(p);
           break;
+
+        case 'fetchModelsStart':
+          showStatus('🔄 Fetching models...', 'info');
+          break;
+
+        case 'fetchModelsEnd':
+          fetchModelsBtn.disabled = false;
+          fetchModelsBtn.textContent = '🔄 Update Model List';
+          break;
       }
     });
   </script>
 </body>
 </html>`;
-  }
-
-  /**
-   * Handle messages from the webview
-   */
-  private async handleMessage(message: unknown): Promise<void> {
-    // Validate message structure
-    if (!message || typeof message !== 'object') {
-      this.outputChannel.appendLine(`[Webview] Invalid message received: not an object`);
-      this.sendMessage('error', { message: 'Invalid message format' });
-      return;
     }
 
-    const msg = message as WebviewMessage;
-    this.outputChannel.appendLine(`[Webview] Received message: ${msg.type}`);
-
-    switch (msg.type) {
-      case 'save':
-        if (isSaveMessage(msg)) {
-          await this.handleSave(msg);
-        } else {
-          this.sendMessage('error', { message: 'Invalid save message format' });
+    /**
+     * Handle messages from the webview
+     */
+    private async handleMessage(message: unknown): Promise<void> {
+        // Validate message structure
+        if (!message || typeof message !== 'object') {
+            this.outputChannel.appendLine(`[Webview] Invalid message received: not an object`);
+            this.sendMessage('error', { message: 'Invalid message format' });
+            return;
         }
-        break;
 
-      case 'test':
-        if (isTestMessage(msg)) {
-          await this.handleTest(msg);
-        } else {
-          this.sendMessage('error', { message: 'Invalid test message format' });
+        const msg = message as WebviewMessage;
+        this.outputChannel.appendLine(`[Webview] Received message: ${msg.type}`);
+
+        switch (msg.type) {
+            case 'save':
+                if (isSaveMessage(msg)) {
+                    await this.handleSave(msg);
+                } else {
+                    this.sendMessage('error', { message: 'Invalid save message format' });
+                }
+                break;
+
+            case 'test':
+                if (isTestMessage(msg)) {
+                    await this.handleTest(msg);
+                } else {
+                    this.sendMessage('error', { message: 'Invalid test message format' });
+                }
+                break;
+
+            case 'clear':
+                if (isClearMessage(msg)) {
+                    await this.handleClear();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid clear message format' });
+                }
+                break;
+
+            case 'fetchModels':
+                if (isFetchModelsMessage(msg)) {
+                    await this.handleFetchModels();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid fetchModels message format' });
+                }
+                break;
+
+            default:
+                this.outputChannel.appendLine(`[Webview] Unknown message type: ${msg.type}`);
+                this.sendMessage('error', { message: `Unknown message type: ${(msg as { type: string }).type}` });
         }
-        break;
+    }
 
-      case 'clear':
-        if (isClearMessage(msg)) {
-          await this.handleClear();
-        } else {
-          this.sendMessage('error', { message: 'Invalid clear message format' });
+    /**
+     * Handle save configuration
+     */
+    private async handleSave(message: { baseUrl: string; token: string; apiStyle: APIStyle }): Promise<void> {
+        try {
+            await this.config.setProviderConfig('default', {
+                baseUrl: message.baseUrl.trim(),
+                token: message.token.trim(),
+                apiStyle: message.apiStyle,
+            });
+
+            this.sendMessage('saved');
+            await this.sendStatus();
+
+            // Prompt user to reload window to refresh model list
+            await NoticeHelper.promptReload('Configuration saved successfully.');
+        } catch (error) {
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
         }
-        break;
-
-      default:
-        this.outputChannel.appendLine(`[Webview] Unknown message type: ${msg.type}`);
-        this.sendMessage('error', { message: `Unknown message type: ${(msg as { type: string }).type}` });
     }
-  }
 
-  /**
-   * Handle save configuration
-   */
-  private async handleSave(message: { baseUrl: string; token: string; apiStyle: APIStyle }): Promise<void> {
-    try {
-      await this.config.setProviderConfig('default', {
-        baseUrl: message.baseUrl.trim(),
-        token: message.token.trim(),
-        apiStyle: message.apiStyle,
-      });
+    /**
+     * Handle test connection
+     */
+    private async handleTest(message: { baseUrl: string; token: string }): Promise<void> {
+        try {
+            const baseUrl = message.baseUrl.trim();
 
-      this.sendMessage('saved');
-      await this.sendStatus();
-    } catch (error) {
-      this.sendMessage('error', {
-        message: error instanceof Error ? error.message : String(error)
-      });
+            // Validate URL format
+            if (!baseUrl || baseUrl.length === 0) {
+                throw new Error('Base URL cannot be empty');
+            }
+
+            let url: URL;
+            try {
+                url = new URL(baseUrl);
+            } catch {
+                throw new Error('Invalid URL format');
+            }
+
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                throw new Error('URL must use http or https protocol');
+            }
+
+            // Temporarily save config for testing
+            await this.config.setProviderConfig('default', {
+                baseUrl,
+                token: message.token.trim(),
+                apiStyle: 'openai',
+            });
+
+            // Try to fetch models
+            const config = await this.config.getProviderConfig('default');
+            if (!config) {
+                throw new Error('Configuration not found');
+            }
+
+            // Test by making a request to the models endpoint
+            const modelsUrl = config.baseUrl.endsWith('/')
+                ? `${config.baseUrl}models`
+                : `${config.baseUrl}/models`;
+
+            const response = await fetch(modelsUrl, {
+                headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const modelCount = data.data?.length || 0;
+
+            this.sendMessage('testResult', { success: true, modelCount });
+        } catch (error) {
+            this.sendMessage('testResult', {
+                success: false,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
     }
-  }
 
-  /**
-   * Handle test connection
-   */
-  private async handleTest(message: { baseUrl: string; token: string }): Promise<void> {
-    try {
-      const baseUrl = message.baseUrl.trim();
-
-      // Validate URL format
-      if (!baseUrl || baseUrl.length === 0) {
-        throw new Error('Base URL cannot be empty');
-      }
-
-      let url: URL;
-      try {
-        url = new URL(baseUrl);
-      } catch {
-        throw new Error('Invalid URL format');
-      }
-
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        throw new Error('URL must use http or https protocol');
-      }
-
-      // Temporarily save config for testing
-      await this.config.setProviderConfig('default', {
-        baseUrl,
-        token: message.token.trim(),
-        apiStyle: 'openai',
-      });
-
-      // Try to fetch models
-      const config = await this.config.getProviderConfig('default');
-      if (!config) {
-        throw new Error('Configuration not found');
-      }
-
-      // Test by making a request to the models endpoint
-      const modelsUrl = config.baseUrl.endsWith('/')
-        ? `${config.baseUrl}models`
-        : `${config.baseUrl}/models`;
-
-      const response = await fetch(modelsUrl, {
-        headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const modelCount = data.data?.length || 0;
-
-      this.sendMessage('testResult', { success: true, modelCount });
-    } catch (error) {
-      this.sendMessage('testResult', {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      });
+    /**
+     * Handle clear configuration
+     */
+    private async handleClear(): Promise<void> {
+        try {
+            await this.config.removeProviderConfig('default');
+            this.sendMessage('cleared');
+            await this.sendCurrentConfig();
+            await this.sendStatus();
+        } catch (error) {
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
     }
-  }
 
-  /**
-   * Handle clear configuration
-   */
-  private async handleClear(): Promise<void> {
-    try {
-      await this.config.removeProviderConfig('default');
-      this.sendMessage('cleared');
-      await this.sendCurrentConfig();
-      await this.sendStatus();
-    } catch (error) {
-      this.sendMessage('error', {
-        message: error instanceof Error ? error.message : String(error)
-      });
+    /**
+     * Handle fetch models - trigger the fetchModels command
+     */
+    private async handleFetchModels(): Promise<void> {
+        try {
+            // Notify webview that fetch is starting
+            this.sendMessage('fetchModelsStart');
+
+            // Execute the fetchModels command
+            await vscode.commands.executeCommand('tinglybox.fetchModels');
+
+            // Notify webview that fetch is complete
+            this.sendMessage('fetchModelsEnd');
+        } catch (error) {
+            this.sendMessage('fetchModelsEnd');
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
     }
-  }
 
-  /**
-   * Send current configuration to webview
-   */
-  private async sendCurrentConfig(): Promise<void> {
-    const config = await this.config.getProviderConfig('default');
-    this.sendMessage('config', { config });
-  }
+    /**
+     * Send current configuration to webview
+     */
+    private async sendCurrentConfig(): Promise<void> {
+        const config = await this.config.getProviderConfig('default');
+        this.sendMessage('config', { config });
+    }
 
-  /**
-   * Send status information to webview
-   */
-  private async sendStatus(): Promise<void> {
-    const config = await this.config.getProviderConfig('default');
+    /**
+     * Send status information to webview
+     */
+    private async sendStatus(): Promise<void> {
+        const config = await this.config.getProviderConfig('default');
 
-    let html: string;
-    if (config) {
-      const url = new URL(config.baseUrl);
-      const styleLabel = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
-      const tokenStatus = config.token ? '✅ Set' : '⚠️ Not set';
+        let html: string;
+        if (config) {
+            const url = new URL(config.baseUrl);
+            const styleLabel = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            const tokenStatus = config.token ? '✅ Set' : '⚠️ Not set';
 
-      html = `<p><strong>Base URL:</strong> ${url.hostname}:${url.port || '80'}</p>
+            html = `<p><strong>Base URL:</strong> ${url.hostname}:${url.port || '80'}</p>
         <p><strong>API Style:</strong> ${styleLabel}</p>
         <p><strong>Token:</strong> ${tokenStatus}</p>
         <p><strong>Provider ID:</strong> default</p>`;
-    } else {
-      html = '<p><strong>⚠️ Status:</strong> Not configured</p>';
+        } else {
+            html = '<p><strong>⚠️ Status:</strong> Not configured</p>';
+        }
+
+        this.sendMessage('status', { html });
     }
 
-    this.sendMessage('status', { html });
-  }
+    /**
+     * Send message to webview
+     */
+    private sendMessage(type: string, data?: any): void {
+        this.currentPanel?.webview.postMessage({ type, ...data });
+    }
 
-  /**
-   * Send message to webview
-   */
-  private sendMessage(type: string, data?: any): void {
-    this.currentPanel?.webview.postMessage({ type, ...data });
-  }
-
-  /**
-   * Dispose of resources
-   */
-  dispose(): void {
-    this.currentPanel?.dispose();
-    this.disposables.forEach(d => d.dispose());
-  }
+    /**
+     * Dispose of resources
+     */
+    dispose(): void {
+        this.currentPanel?.dispose();
+        this.disposables.forEach(d => d.dispose());
+    }
 }
