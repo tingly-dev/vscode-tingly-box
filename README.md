@@ -1,71 +1,77 @@
-# vscode-tingly-box README
+# Tingly Box For VSCode
 
-This is the README for your extension "vscode-tingly-box". After writing up a brief description, we recommend including the following sections.
+Tinlgy Box VSCode Extension, connect VS Code Chat to [Tingly Box](https://github.com/tingly-dev/tingly-box) for a unified AI experience, or use standalone with OpenAI, Anthropic, and any OpenAI/Anthropic-compatible APIs.
+
+> Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
+
+![screen-shot](./resource/ScreenShot.png)
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Works with Tingly Box
+This extension is designed to integrate seamlessly with [Tingly Box](https://github.com/tingly-dev/tingly-box) — your AI intelligence orchestration platform. Together, they provide a unified AI experience for solo builders and dev teams.
 
-For example if there is an image subfolder under your extension project workspace:
+### Standalone Capabilities
+Works perfectly on its own too:
 
-\!\[feature X\]\(images/feature-x.png\)
+- **Multi-Provider Support** — Native support for OpenAI and Anthropic APIs, plus any OpenAI-compatible or Anthropic-compatible endpoints
+- **Custom Endpoints** — Connect to self-hosted models, proxies, or any OpenAI/Anthropic-compatible API
+- **Streaming Responses** — Real-time streaming chat responses with full VS Code integration
+- **Vision Support** — Models with image input capabilities (like Claude Sonnet and GPT-4V) work seamlessly
+- **Tool Calling** — Full support for models with function/tool calling capabilities
+- **Status Bar Indicator** — Quick view of your active provider and API style
+- **Secure Credential Storage** — API tokens stored securely in VS Code's SecretStorage
+- **Model Discovery** — Automatically fetches available models from your configured endpoints
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## Quick Start
+
+1. Install the extension from the VS Code Marketplace
+2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box VSCode: Manage Settings`
+3. Configure your provider:
+   - **Base URL**: Your API endpoint (e.g., `https://api.openai.com/v1/` or a custom endpoint)
+   - **Token**: Your API key
+   - **API Style**: Choose between `anthropic` or `openai` format
+4. Start chatting with AI in VS Code!
+
+## Commands
+
+| Command                                   | Description                    |
+| ----------------------------------------- | ------------------------------ |
+| `Tingly Box VSCode: Manage Settings`      | Open configuration UI          |
+| `Tingly Box VSCode: Show Provider Status` | View current connection status |
+| `Tingly Box VSCode: Fetch Models`         | Refresh available models       |
+| `Tingly Box VSCode: Toggle API Style`     | Switch between API styles      |
+
+## Settings
+
+- `tinglybox.debug` — Enable debug logging in output channel (default: `false`)
+
+## Supported Providers
+
+### OpenAI-Compatible
+- OpenAI (GPT-4, GPT-3.5, etc.)
+- Azure OpenAI
+- Any OpenAI-compatible endpoint
+
+### Anthropic-Compatible
+- Anthropic Claude (Sonnet, Opus, Haiku)
+- Any Anthropic-compatible endpoint
+
+### Mention
+It is recommended to use with Tingly Box, which provides continuous compatibility support.
+Using the plugin independently requires the vendor to provide guarantees.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- VS Code 1.104.0 or higher
+- An API key from your chosen provider
 
-## Extension Settings
+## License
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+[MPL-2.0](LICENSE.txt)
 
-For example:
+## Links
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tingly-dev.vscode-tingly-box)
+- [Source Code](https://github.com/tingly-dev/vscode-tingly-box)
+- [Report Issues](https://github.com/tingly-dev/vscode-tingly-box/issues)
