@@ -11,8 +11,20 @@ import type { ProviderConfig } from '../types/index.js';
  */
 export class ConfigManager {
   private static readonly STORAGE_PREFIX = 'tinglybox.';
+  private readonly outputChannel?: vscode.OutputChannel;
 
-  constructor(private readonly secrets: vscode.SecretStorage) {}
+  constructor(private readonly secrets: vscode.SecretStorage, outputChannel?: vscode.OutputChannel) {
+    this.outputChannel = outputChannel;
+  }
+
+  /**
+   * Log debug message
+   */
+  private log(message: string): void {
+    if (this.outputChannel) {
+      this.outputChannel.appendLine(`[ConfigManager] ${message}`);
+    }
+  }
 
   /**
    * Get configuration for a specific provider
@@ -23,14 +35,20 @@ export class ConfigManager {
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
 
+    this.log(`Reading config for provider: ${providerId}`);
+
     const [token, baseUrl] = await Promise.all([
       this.secrets.get(tokenKey),
       this.secrets.get(urlKey),
     ]);
 
     if (!token || !baseUrl) {
+      this.log(`Config for ${providerId}: incomplete (token: ${!!token}, baseUrl: ${!!baseUrl})`);
       return undefined;
     }
+
+    // Log base URL (but mask token)
+    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, token=****${token.slice(-4)}`);
 
     return { token, baseUrl };
   }
@@ -42,7 +60,9 @@ export class ConfigManager {
    */
   async getToken(providerId: string): Promise<string | undefined> {
     const key = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
-    return await this.secrets.get(key);
+    const token = await this.secrets.get(key);
+    this.log(`Get token for ${providerId}: ${token ? `****${token.slice(-4)}` : 'not found'}`);
+    return token;
   }
 
   /**
@@ -52,7 +72,9 @@ export class ConfigManager {
    */
   async getBaseUrl(providerId: string): Promise<string | undefined> {
     const key = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
-    return await this.secrets.get(key);
+    const baseUrl = await this.secrets.get(key);
+    this.log(`Get baseUrl for ${providerId}: ${baseUrl || 'not found'}`);
+    return baseUrl;
   }
 
   /**
@@ -62,6 +84,8 @@ export class ConfigManager {
    * @throws Error if validation fails
    */
   async setProviderConfig(providerId: string, config: ProviderConfig): Promise<void> {
+    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, token=****${config.token.slice(-4)}`);
+
     // Validate URL format
     if (!this.isValidUrl(config.baseUrl)) {
       throw new Error('Invalid base URL format');
@@ -79,6 +103,8 @@ export class ConfigManager {
       this.secrets.store(tokenKey, config.token),
       this.secrets.store(urlKey, config.baseUrl),
     ]);
+
+    this.log(`Config stored successfully for ${providerId}`);
   }
 
   /**
@@ -86,6 +112,8 @@ export class ConfigManager {
    * @param providerId - The provider identifier
    */
   async removeProviderConfig(providerId: string): Promise<void> {
+    this.log(`Removing config for ${providerId}`);
+
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
 
@@ -93,6 +121,8 @@ export class ConfigManager {
       this.secrets.delete(tokenKey),
       this.secrets.delete(urlKey),
     ]);
+
+    this.log(`Config removed for ${providerId}`);
   }
 
   /**
@@ -102,7 +132,9 @@ export class ConfigManager {
    */
   async hasConfiguredProvider(providerId: string): Promise<boolean> {
     const config = await this.getProviderConfig(providerId);
-    return config !== undefined;
+    const isConfigured = config !== undefined;
+    this.log(`Provider ${providerId} configured: ${isConfigured}`);
+    return isConfigured;
   }
 
   /**
@@ -113,8 +145,11 @@ export class ConfigManager {
   private isValidUrl(url: string): boolean {
     try {
       const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      const isValid = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      this.log(`URL validation for ${url}: ${isValid ? 'valid' : 'invalid'}`);
+      return isValid;
     } catch {
+      this.log(`URL validation for ${url}: invalid (parse error)`);
       return false;
     }
   }

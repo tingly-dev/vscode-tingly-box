@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
 import { ProviderRegistry } from '../provider/ProviderRegistry.js';
-import type { OpenAIAdapter } from '../provider/adapters/OpenAIAdapter.js';
 
 /**
  * Manages the settings UI for configuring providers
@@ -146,12 +145,6 @@ export class SettingsManager {
         token: token.trim(),
       });
 
-      // Clear model cache so new configuration takes effect
-      const adapter = ProviderRegistry.get(providerId) as OpenAIAdapter;
-      if (adapter && typeof adapter.clearModelCache === 'function') {
-        adapter.clearModelCache();
-      }
-
       vscode.window.showInformationMessage(
         `${provider.displayName} configuration saved successfully.`
       );
@@ -182,13 +175,6 @@ export class SettingsManager {
 
     try {
       await this.config.removeProviderConfig(providerId);
-
-      // Clear model cache
-      const adapter = ProviderRegistry.get(providerId) as OpenAIAdapter;
-      if (adapter && typeof adapter.clearModelCache === 'function') {
-        adapter.clearModelCache();
-      }
-
       vscode.window.showInformationMessage(
         `${provider.displayName} configuration has been removed.`
       );

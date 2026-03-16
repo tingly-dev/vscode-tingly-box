@@ -43,6 +43,11 @@
         "command": "tinglybox.status",
         "title": "Tingly Box VSCode: Show Provider Status",
         "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.fetchModels",
+        "title": "Tingly Box VSCode: Fetch Models",
+        "category": "Tingly Box"
       }
     ],
     "configuration": {

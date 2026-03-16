@@ -7,6 +7,7 @@ import { ConfigManager } from './config/ConfigManager.js';
 import { SettingsManager } from './config/SettingsManager.js';
 import { ProviderRegistry } from './provider/ProviderRegistry.js';
 import { OpenAIAdapter } from './provider/adapters/OpenAIAdapter.js';
+import { ErrorHandler } from './utils/ErrorHandler.js';
 
 /**
  * Extension activation function
@@ -27,10 +28,11 @@ export function activate(context: vscode.ExtensionContext) {
     output.appendLine('[TinglyBox] Registered OpenAI-compatible provider');
 
     // Create configuration manager
-    const config = new ConfigManager(context.secrets);
+    const config = new ConfigManager(context.secrets, output);
 
     // Inject config manager into providers that need it
     openAIAdapter.setConfigManager(config);
+    openAIAdapter.setOutputChannel(output);
 
     // Create settings manager
     const settings = new SettingsManager(config, output);
@@ -62,16 +64,86 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(statusCommand);
     output.appendLine('[TinglyBox] Registered status command');
 
+    // Register fetch models command
+    const fetchModelsCommand = vscode.commands.registerCommand(
+      'tinglybox.fetchModels',
+      async () => {
+        try {
+          output.appendLine('[TinglyBox] Fetching models from API...');
+          output.show(true);
+
+          const adapter = ProviderRegistry.get('default');
+          if (!adapter) {
+            throw new Error('Provider adapter not found');
+          }
+
+          // Check if adapter has fetchModels method
+          if (typeof (adapter as any).fetchModels !== 'function') {
+            throw new Error('Adapter does not support fetching models');
+          }
+
+          // Clear cache to force fresh fetch
+          (adapter as any).clearModelCache();
+
+          // Fetch models
+          const models = await (adapter as any).fetchModels();
+
+          output.appendLine(`[TinglyBox] Successfully fetched ${models.length} models:`);
+          for (const model of models) {
+            output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
+            output.appendLine(`    ID: ${model.id}`);
+            output.appendLine(`    Input: ${model.maxInputTokens}, Output: ${model.maxOutputTokens} tokens`);
+            output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
+          }
+
+          vscode.window.showInformationMessage(
+            `Successfully fetched ${models.length} models from API. Check output for details.`
+          );
+        } catch (error) {
+          output.appendLine(`[TinglyBox] Error fetching models: ${error}`);
+          ErrorHandler.handle(error, output);
+        }
+      }
+    );
+    context.subscriptions.push(fetchModelsCommand);
+    output.appendLine('[TinglyBox] Registered fetch models command');
+
+    // Auto-fetch models on activation ONLY if already configured
+    (async () => {
+      try {
+        const adapter = ProviderRegistry.get('default');
+        if (!adapter || typeof (adapter as any).fetchModels !== 'function') {
+          return;
+        }
+
+        // Check if provider is configured BEFORE attempting to fetch
+        const hasConfig = await config.hasConfiguredProvider('default');
+        if (!hasConfig) {
+          output.appendLine('[TinglyBox] Provider not configured. Run "Tingly Box VSCode: Manage Settings" to configure.');
+          return;
+        }
+
+        output.appendLine('[TinglyBox] Fetching available models...');
+        const models = await (adapter as any).fetchModels();
+        output.appendLine(`[TinglyBox] Loaded ${models.length} models:`);
+        for (const model of models) {
+          output.appendLine(`  - ${model.name}`);
+        }
+      } catch (error) {
+        output.appendLine(`[TinglyBox] Could not fetch models: ${error}`);
+      }
+    })();
+
     // Show welcome message on first activation
     const hasShownWelcome = context.globalState.get<boolean>('hasShownWelcome');
     if (!hasShownWelcome) {
       vscode.window
         .showInformationMessage(
-          'Tingly Box is now active! Configure your API keys to get started.',
-          'Open Settings'
+          'Tingly Box VSCode is now active! Please configure your Base URL and Token to get started.',
+          'Configure'
         )
         .then((selection) => {
-          if (selection === 'Open Settings') {
+          if (selection === 'Configure') {
             vscode.commands.executeCommand('tinglybox.manage');
           }
         });
