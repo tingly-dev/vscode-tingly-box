@@ -8,6 +8,7 @@ import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { API_KEY_REQUIREMENTS } from '../../constants/ModelLimits.js';
 
 /**
  * OpenAI API chat completion response
@@ -64,11 +65,18 @@ export class OpenAIAdapter extends BaseAPIAdapter {
 
     this.log(`Fetching models from: ${modelsUrl}`);
 
+    // Build headers with conditional authorization
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (config.token) {
+      headers['Authorization'] = `Bearer ${config.token}`;
+    }
+
     const response = await fetch(modelsUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${config.token}`,
-      },
+      headers,
     });
 
     this.log(`Models API response status: ${response.status} ${response.statusText}`);
@@ -130,12 +138,18 @@ export class OpenAIAdapter extends BaseAPIAdapter {
 
       this.log(`Chat API URL: ${apiUrl}`);
 
+      // Build headers with conditional authorization
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (config.token) {
+        headers['Authorization'] = `Bearer ${config.token}`;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(requestBody),
         signal,
       });
@@ -169,7 +183,7 @@ export class OpenAIAdapter extends BaseAPIAdapter {
    * Validate API key format for OpenAI
    */
   protected validateApiKey(key: string): boolean {
-    return key.length >= 20;
+    return key.length >= API_KEY_REQUIREMENTS.OPENAI_MIN_LENGTH;
   }
 
   /**
@@ -241,6 +255,12 @@ export class OpenAIAdapter extends BaseAPIAdapter {
 
     try {
       while (true) {
+        // Check cancellation before reading
+        if (signal.aborted) {
+          this.log('Stream parsing aborted by cancellation signal');
+          break;
+        }
+
         const { done, value } = await reader.read();
 
         if (done || signal.aborted) {
@@ -253,6 +273,12 @@ export class OpenAIAdapter extends BaseAPIAdapter {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
+          // Check cancellation during line processing
+          if (signal.aborted) {
+            this.log('Stream parsing aborted during line processing');
+            break;
+          }
+
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data:')) {
             continue;
@@ -262,6 +288,11 @@ export class OpenAIAdapter extends BaseAPIAdapter {
           if (content) {
             onChunk(content);
           }
+        }
+
+        // Exit outer loop if aborted during inner loop
+        if (signal.aborted) {
+          break;
         }
       }
     } finally {

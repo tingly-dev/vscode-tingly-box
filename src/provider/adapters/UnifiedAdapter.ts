@@ -90,9 +90,9 @@ export class UnifiedAdapter extends BaseProviderAdapter {
   /**
    * Count tokens using the active adapter
    */
-  async countTokens(text: string, model?: string): Promise<number> {
+  async countTokens(text: string): Promise<number> {
     const adapter = await this.getActiveAdapter();
-    return adapter.countTokens(text, model);
+    return adapter.countTokens(text);
   }
 
   /**

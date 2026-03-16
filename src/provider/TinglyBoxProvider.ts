@@ -121,7 +121,7 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
   async provideLanguageModelChatResponse(
     model: vscode.LanguageModelChatInformation,
     messages: readonly vscode.LanguageModelChatRequestMessage[],
-    options: vscode.ProvideLanguageModelChatResponseOptions,
+    _options: vscode.ProvideLanguageModelChatResponseOptions,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     token: vscode.CancellationToken
   ): Promise<void> {
@@ -190,9 +190,9 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
    * VSCode calls this to estimate token usage for cost tracking
    */
   async provideTokenCount(
-    model: vscode.LanguageModelChatInformation,
+    _model: vscode.LanguageModelChatInformation,
     text: string | vscode.LanguageModelChatRequestMessage,
-    token: vscode.CancellationToken
+    _token: vscode.CancellationToken
   ): Promise<number> {
     try {
       let count = 0;

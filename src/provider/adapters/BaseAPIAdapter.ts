@@ -3,10 +3,14 @@
  * Provides common features like model fetching, config management, logging
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
+import type { ModelInfo } from '../../types/index.js';
 import { BaseProviderAdapter } from '../BaseProvider.js';
 import { ConfigManager } from '../../config/ConfigManager.js';
-import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import {
+  DEFAULT_TOKEN_LIMITS,
+  MODEL_FAMILY_LIMITS,
+  MODEL_PATTERNS,
+} from '../../constants/ModelLimits.js';
 import * as vscode from 'vscode';
 
 /**
@@ -108,36 +112,45 @@ export abstract class BaseAPIAdapter extends BaseProviderAdapter {
       }
 
       // Determine capabilities based on model name
-      const supportsVision = modelName.includes('vision') ||
-                            modelName.includes('gpt-4o') ||
-                            modelName.includes('claude-3');
+      const supportsVision = MODEL_PATTERNS.VISION.some(pattern =>
+        modelName.includes(pattern)
+      );
 
-      const supportsTools = !modelName.includes('instruct') &&
-                           !modelName.includes('base');
+      const supportsTools = !MODEL_PATTERNS.TOOLS_EXCLUDED.some(pattern =>
+        modelName.includes(pattern)
+      );
 
-      // Estimate token limits
-      let maxInputTokens = 128000;
-      let maxOutputTokens = 4096;
+      // Get token limits from configuration or use defaults
+      let maxInputTokens = DEFAULT_TOKEN_LIMITS.MAX_INPUT_TOKENS;
+      let maxOutputTokens = DEFAULT_TOKEN_LIMITS.MAX_OUTPUT_TOKENS;
 
-      // Adjust based on common model patterns
+      // Adjust based on model family
       if (modelName.includes('gpt-4')) {
-        maxInputTokens = 128000;
-        maxOutputTokens = modelName.includes('mini') ? 16384 : 4096;
+        const limits = modelName.includes('mini')
+          ? MODEL_FAMILY_LIMITS['gpt-4-mini']
+          : MODEL_FAMILY_LIMITS['gpt-4'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       } else if (modelName.includes('gpt-3.5')) {
-        maxInputTokens = 16385;
-        maxOutputTokens = 4096;
+        const limits = MODEL_FAMILY_LIMITS['gpt-3.5'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       } else if (modelName.includes('claude-3')) {
-        maxInputTokens = 200000;
-        maxOutputTokens = 8192;
+        const limits = MODEL_FAMILY_LIMITS['claude-3'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       } else if (modelName.includes('claude-2')) {
-        maxInputTokens = 100000;
-        maxOutputTokens = 4096;
+        const limits = MODEL_FAMILY_LIMITS['claude-2'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       } else if (modelName.includes('deepseek-r1')) {
-        maxInputTokens = 64000;
-        maxOutputTokens = 8000;
+        const limits = MODEL_FAMILY_LIMITS['deepseek-r1'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       } else if (modelName.includes('deepseek')) {
-        maxInputTokens = 128000;
-        maxOutputTokens = 4096;
+        const limits = MODEL_FAMILY_LIMITS['deepseek'];
+        maxInputTokens = limits.maxInputTokens;
+        maxOutputTokens = limits.maxOutputTokens;
       }
 
       // Version from creation timestamp
@@ -162,7 +175,7 @@ export abstract class BaseAPIAdapter extends BaseProviderAdapter {
   /**
    * Count tokens using character-based estimation
    */
-  async countTokens(text: string, model?: string): Promise<number> {
+  async countTokens(text: string): Promise<number> {
     if (!text || text.length === 0) {
       return 0;
     }

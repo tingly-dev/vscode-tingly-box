@@ -46,10 +46,9 @@ export abstract class BaseProviderAdapter {
    * Count tokens for text (default implementation using character-based estimation)
    * Providers can override for more accurate counting
    * @param text - The text to count tokens for
-   * @param model - Optional model identifier for model-specific counting
    * @returns Estimated token count
    */
-  async countTokens(text: string, model?: string): Promise<number> {
+  async countTokens(text: string): Promise<number> {
     // Default: character-based estimation
     if (!text || text.length === 0) {
       return 0;

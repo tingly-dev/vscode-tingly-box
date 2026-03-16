@@ -8,7 +8,6 @@ import type {
   ProviderMessage,
   OpenAIMessage,
   TextPart,
-  ImagePart,
   ToolCallPart,
   ToolResultPart
 } from '../types/index.js';

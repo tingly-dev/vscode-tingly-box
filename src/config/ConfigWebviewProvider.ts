@@ -5,7 +5,69 @@
 
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
-import type { ProviderConfig, APIStyle } from '../types/index.js';
+import type { APIStyle } from '../types/index.js';
+
+/**
+ * Webview message types
+ */
+export interface WebviewMessage {
+  type: 'save' | 'test' | 'clear';
+  baseUrl?: string;
+  token?: string;
+  apiStyle?: APIStyle;
+}
+
+/**
+ * Save message from webview
+ */
+export interface SaveMessage extends WebviewMessage {
+  type: 'save';
+  baseUrl: string;
+  token: string;
+  apiStyle: APIStyle;
+}
+
+/**
+ * Test message from webview
+ */
+export interface TestMessage extends WebviewMessage {
+  type: 'test';
+  baseUrl: string;
+  token: string;
+}
+
+/**
+ * Clear message from webview
+ */
+export interface ClearMessage extends WebviewMessage {
+  type: 'clear';
+}
+
+/**
+ * Type guard for SaveMessage
+ */
+function isSaveMessage(msg: WebviewMessage): msg is SaveMessage {
+  return msg.type === 'save' &&
+    typeof msg.baseUrl === 'string' &&
+    typeof msg.token === 'string' &&
+    (msg.apiStyle === 'anthropic' || msg.apiStyle === 'openai');
+}
+
+/**
+ * Type guard for TestMessage
+ */
+function isTestMessage(msg: WebviewMessage): msg is TestMessage {
+  return msg.type === 'test' &&
+    typeof msg.baseUrl === 'string' &&
+    typeof msg.token === 'string';
+}
+
+/**
+ * Type guard for ClearMessage
+ */
+function isClearMessage(msg: WebviewMessage): msg is ClearMessage {
+  return msg.type === 'clear';
+}
 
 export class ConfigWebviewProvider {
   private currentPanel?: vscode.WebviewPanel;
@@ -548,24 +610,45 @@ export class ConfigWebviewProvider {
   /**
    * Handle messages from the webview
    */
-  private async handleMessage(message: any): Promise<void> {
-    this.outputChannel.appendLine(`[Webview] Received message: ${message.type}`);
+  private async handleMessage(message: unknown): Promise<void> {
+    // Validate message structure
+    if (!message || typeof message !== 'object') {
+      this.outputChannel.appendLine(`[Webview] Invalid message received: not an object`);
+      this.sendMessage('error', { message: 'Invalid message format' });
+      return;
+    }
 
-    switch (message.type) {
+    const msg = message as WebviewMessage;
+    this.outputChannel.appendLine(`[Webview] Received message: ${msg.type}`);
+
+    switch (msg.type) {
       case 'save':
-        await this.handleSave(message);
+        if (isSaveMessage(msg)) {
+          await this.handleSave(msg);
+        } else {
+          this.sendMessage('error', { message: 'Invalid save message format' });
+        }
         break;
 
       case 'test':
-        await this.handleTest(message);
+        if (isTestMessage(msg)) {
+          await this.handleTest(msg);
+        } else {
+          this.sendMessage('error', { message: 'Invalid test message format' });
+        }
         break;
 
       case 'clear':
-        await this.handleClear();
+        if (isClearMessage(msg)) {
+          await this.handleClear();
+        } else {
+          this.sendMessage('error', { message: 'Invalid clear message format' });
+        }
         break;
 
       default:
-        this.outputChannel.appendLine(`[Webview] Unknown message type: ${message.type}`);
+        this.outputChannel.appendLine(`[Webview] Unknown message type: ${msg.type}`);
+        this.sendMessage('error', { message: `Unknown message type: ${(msg as { type: string }).type}` });
     }
   }
 
@@ -594,9 +677,27 @@ export class ConfigWebviewProvider {
    */
   private async handleTest(message: { baseUrl: string; token: string }): Promise<void> {
     try {
+      const baseUrl = message.baseUrl.trim();
+
+      // Validate URL format
+      if (!baseUrl || baseUrl.length === 0) {
+        throw new Error('Base URL cannot be empty');
+      }
+
+      let url: URL;
+      try {
+        url = new URL(baseUrl);
+      } catch {
+        throw new Error('Invalid URL format');
+      }
+
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new Error('URL must use http or https protocol');
+      }
+
       // Temporarily save config for testing
       await this.config.setProviderConfig('default', {
-        baseUrl: message.baseUrl.trim(),
+        baseUrl,
         token: message.token.trim(),
         apiStyle: 'openai',
       });

@@ -8,6 +8,7 @@ import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { API_KEY_REQUIREMENTS } from '../../constants/ModelLimits.js';
 
 /**
  * Anthropic streaming event types
@@ -51,11 +52,19 @@ export class AnthropicAdapter extends BaseAPIAdapter {
 
     this.log(`Fetching models from: ${modelsUrl}`);
 
+    // Build headers with conditional authorization
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+    };
+
+    if (config.token) {
+      headers['x-api-key'] = config.token;
+    }
+
     const response = await fetch(modelsUrl, {
       method: 'GET',
-      headers: {
-        'x-api-key': config.token,
-      },
+      headers,
     });
 
     this.log(`Models API response status: ${response.status} ${response.statusText}`);
@@ -127,13 +136,19 @@ export class AnthropicAdapter extends BaseAPIAdapter {
 
       this.log(`Anthropic API URL: ${apiUrl}`);
 
+      // Build headers with conditional authorization
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      };
+
+      if (config.token) {
+        headers['x-api-key'] = config.token;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'x-api-key': config.token,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(requestBody),
         signal,
       });
@@ -167,8 +182,8 @@ export class AnthropicAdapter extends BaseAPIAdapter {
    * Validate API key format for Anthropic
    */
   protected validateApiKey(key: string): boolean {
-    // Anthropic API keys start with 'sk-ant-' and are longer than 20 chars
-    return key.length >= 20;
+    // Anthropic API keys should be sufficiently long
+    return key.length >= API_KEY_REQUIREMENTS.ANTHROPIC_MIN_LENGTH;
   }
 
   /**
@@ -187,7 +202,7 @@ export class AnthropicAdapter extends BaseAPIAdapter {
    * Parse streaming chunk from Anthropic API response
    * Not used directly, parseAnthropicStream handles the full event parsing
    */
-  protected parseChunk(chunk: string): string | null {
+  protected parseChunk(): string | null {
     // Anthropic uses event-based streaming, not simple chunks
     return null;
   }
@@ -211,6 +226,12 @@ export class AnthropicAdapter extends BaseAPIAdapter {
 
     try {
       while (true) {
+        // Check cancellation before reading
+        if (signal.aborted) {
+          this.log('Anthropic stream parsing aborted by cancellation signal');
+          break;
+        }
+
         const { done, value } = await reader.read();
 
         if (done || signal.aborted) {
@@ -223,6 +244,12 @@ export class AnthropicAdapter extends BaseAPIAdapter {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
+          // Check cancellation during line processing
+          if (signal.aborted) {
+            this.log('Anthropic stream parsing aborted during line processing');
+            break;
+          }
+
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data:')) {
             continue;
@@ -301,6 +328,11 @@ export class AnthropicAdapter extends BaseAPIAdapter {
             // Ignore parse errors for individual events
             this.log(`Anthropic: failed to parse event: ${parseError}`);
           }
+        }
+
+        // Exit outer loop if aborted during inner loop
+        if (signal.aborted) {
+          break;
         }
       }
     } finally {

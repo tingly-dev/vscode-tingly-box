@@ -66,12 +66,10 @@ export class TokenCounter {
    * Estimate input tokens for a chat request
    * Accounts for both messages and overhead
    * @param messages - Array of chat messages
-   * @param model - Model identifier (for future model-specific counting)
    * @returns Estimated input token count
    */
   static estimateInputTokens(
-    messages: vscode.LanguageModelChatRequestMessage[],
-    model?: string
+    messages: vscode.LanguageModelChatRequestMessage[]
   ): number {
     let total = 0;
 
