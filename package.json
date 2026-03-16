@@ -73,7 +73,7 @@
       }
     ],
     "configuration": {
-      "title": "Tingly Box VSCode",
+      "title": "Tingly Box For VS Code",
       "properties": {
         "tinglybox.debug": {
           "type": "boolean",
