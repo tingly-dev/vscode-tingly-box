@@ -97,9 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
           output.show(true);
 
           // Clear cache to force fresh fetch
-          if (typeof (unifiedAdapter as any).clearModelCache === 'function') {
-            (unifiedAdapter as any).clearModelCache();
-          }
+          unifiedAdapter.clearModelCache();
 
           // Fetch models
           const models = await unifiedAdapter.getModels();
@@ -188,9 +186,7 @@ export function activate(context: vscode.ExtensionContext) {
           output.appendLine('[Tingly Box] Not configured. Run "Tingly Box: Manage Settings" to configure.');
         } else {
           // Clear cache to force fresh fetch
-          if (typeof (unifiedAdapter as any).clearModelCache === 'function') {
-            (unifiedAdapter as any).clearModelCache();
-          }
+          unifiedAdapter.clearModelCache();
 
           try {
             output.appendLine('[Tingly Box] Fetching models...');

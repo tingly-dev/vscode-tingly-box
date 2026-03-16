@@ -183,8 +183,8 @@ export class ConfigWebviewProvider {
     }
 
     .status.success {
-      background: var(--vscode-testingIconPassedForeground);
-      color: var(--vscode-editor-foreground);
+      background: var(--vscode-diffEditor-insertedTextBackground);
+      color: var(--vscode-testingIconPassedForeground);
     }
 
     .status.error {
@@ -525,11 +525,18 @@ export class ConfigWebviewProvider {
           break;
 
         case 'testResult':
+          // Clear previous content
+          currentStatusEl.innerHTML = '';
+
+          const p = document.createElement('p');
           if (message.success) {
-            currentStatusEl.innerHTML = '<p style="color: var(--vscode-testingIconPassedForeground);">✅ Connection successful! Found ' + message.modelCount + ' models.</p>';
+            p.style.color = 'var(--vscode-testingIconPassedForeground)';
+            p.textContent = '✅ Connection successful! Found ' + message.modelCount + ' models.';
           } else {
-            currentStatusEl.innerHTML = '<p style="color: var(--vscode-errorForeground);">❌ Connection failed: ' + message.error + '</p>';
+            p.style.color = 'var(--vscode-errorForeground)';
+            p.textContent = '❌ Connection failed: ' + message.error;
           }
+          currentStatusEl.appendChild(p);
           break;
       }
     });
