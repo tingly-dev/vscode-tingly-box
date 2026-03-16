@@ -16,22 +16,22 @@ import { ErrorHandler } from './utils/ErrorHandler.js';
  * Called when VSCode activates the extension
  */
 export function activate(context: vscode.ExtensionContext) {
-  console.log('[TinglyBox] Extension is being activated...');
+  console.log('[Tingly Box] Extension is being activated...');
 
   // Create output channel for logging
   const output = vscode.window.createOutputChannel('Tingly Box');
   context.subscriptions.push(output);
-  output.appendLine('[TinglyBox] Extension activated');
+  output.appendLine('[Tingly Box] Extension activated');
 
   try {
     // Initialize and register providers
     const openAIAdapter = new OpenAIAdapter();
     ProviderRegistry.register(openAIAdapter);
-    output.appendLine('[TinglyBox] Registered OpenAI-compatible provider');
+    output.appendLine('[Tingly Box] Registered OpenAI-compatible provider');
 
     const anthropicAdapter = new AnthropicAdapter();
     ProviderRegistry.register(anthropicAdapter);
-    output.appendLine('[TinglyBox] Registered Anthropic-compatible provider');
+    output.appendLine('[Tingly Box] Registered Anthropic-compatible provider');
 
     // Create configuration manager
     const config = new ConfigManager(context.secrets, output);
@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Listen for configuration changes to refresh models
     config.on(ConfigManager.CONFIG_CHANGED, async () => {
-      output.appendLine('[TinglyBox] Configuration changed, clearing model cache...');
+      output.appendLine('[Tingly Box] Configuration changed, clearing model cache...');
       provider.clearModelCache();
 
       // Clear all adapters' model cache
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Create status bar manager
     const statusBar = new StatusBarManager(config, output);
     context.subscriptions.push(statusBar);
-    output.appendLine('[TinglyBox] Registered status bar manager');
+    output.appendLine('[Tingly Box] Registered status bar manager');
 
     // Register the language model provider with VSCode
     const providerRegistration = vscode.lm.registerLanguageModelChatProvider(
@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
       provider
     );
     context.subscriptions.push(providerRegistration);
-    output.appendLine('[TinglyBox] Registered LanguageModelChatProvider with VSCode');
+    output.appendLine('[Tingly Box] Registered LanguageModelChatProvider with VSCode');
 
     // Register management command
     const manageCommand = vscode.commands.registerCommand(
@@ -84,7 +84,7 @@ export function activate(context: vscode.ExtensionContext) {
       () => settings.openSettingsUI()
     );
     context.subscriptions.push(manageCommand);
-    output.appendLine('[TinglyBox] Registered management command');
+    output.appendLine('[Tingly Box] Registered management command');
 
     // Register status command
     const statusCommand = vscode.commands.registerCommand(
@@ -92,23 +92,23 @@ export function activate(context: vscode.ExtensionContext) {
       () => settings.showStatus()
     );
     context.subscriptions.push(statusCommand);
-    output.appendLine('[TinglyBox] Registered status command');
+    output.appendLine('[Tingly Box] Registered status command');
 
     // Register fetch models command
     const fetchModelsCommand = vscode.commands.registerCommand(
       'tinglybox.fetchModels',
       async () => {
         try {
-          output.appendLine('[TinglyBox] Fetching models from API...');
+          output.appendLine('[Tingly Box] Fetching models from API...');
           output.show(true);
 
           for (const adapter of ProviderRegistry.list()) {
             try {
-              output.appendLine(`[TinglyBox] Fetching from ${adapter.id}...`);
+              output.appendLine(`[Tingly Box] Fetching from ${adapter.id}...`);
 
               // Check if adapter has fetchModels method
               if (typeof (adapter as any).fetchModels !== 'function') {
-                output.appendLine(`[TinglyBox] ${adapter.id} does not support fetching models`);
+                output.appendLine(`[Tingly Box] ${adapter.id} does not support fetching models`);
                 continue;
               }
 
@@ -118,7 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
               // Fetch models
               const models = await (adapter as any).fetchModels();
 
-              output.appendLine(`[TinglyBox] Successfully fetched ${models.length} models from ${adapter.id}:`);
+              output.appendLine(`[Tingly Box] Successfully fetched ${models.length} models from ${adapter.id}:`);
               for (const model of models) {
                 output.appendLine(`  - ${model.name} (${model.family}, ${model.version})`);
                 output.appendLine(`    ID: ${model.id}`);
@@ -126,7 +126,7 @@ export function activate(context: vscode.ExtensionContext) {
                 output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
               }
             } catch (error) {
-              output.appendLine(`[TinglyBox] Error fetching from ${adapter.id}: ${error}`);
+              output.appendLine(`[Tingly Box] Error fetching from ${adapter.id}: ${error}`);
             }
           }
 
@@ -134,13 +134,13 @@ export function activate(context: vscode.ExtensionContext) {
             'Successfully fetched models from all providers. Check output for details.'
           );
         } catch (error) {
-          output.appendLine(`[TinglyBox] Error fetching models: ${error}`);
+          output.appendLine(`[Tingly Box] Error fetching models: ${error}`);
           ErrorHandler.handle(error, output);
         }
       }
     );
     context.subscriptions.push(fetchModelsCommand);
-    output.appendLine('[TinglyBox] Registered fetch models command');
+    output.appendLine('[Tingly Box] Registered fetch models command');
 
     // Register toggle API style command
     const toggleStyleCommand = vscode.commands.registerCommand(
@@ -150,7 +150,25 @@ export function activate(context: vscode.ExtensionContext) {
       }
     );
     context.subscriptions.push(toggleStyleCommand);
-    output.appendLine('[TinglyBox] Registered toggle style command');
+    output.appendLine('[Tingly Box] Registered toggle style command');
+
+    // Register manage language models command
+    const manageLanguageModelsCommand = vscode.commands.registerCommand(
+      'tinglybox.manageLanguageModels',
+      async () => {
+        output.appendLine('[Tingly Box] Opening VSCode language model management...');
+        try {
+          await vscode.commands.executeCommand('workbench.action.chat.manage');
+        } catch (error) {
+          output.appendLine(`[Tingly Box] Error opening language model management: ${error}`);
+          vscode.window.showWarningMessage(
+            'Unable to open Language Model management. This feature may not be available in your VSCode version.'
+          );
+        }
+      }
+    );
+    context.subscriptions.push(manageLanguageModelsCommand);
+    output.appendLine('[Tingly Box] Registered manage language models command');
 
     // Auto-fetch models on activation ONLY if already configured
     (async () => {
@@ -163,26 +181,26 @@ export function activate(context: vscode.ExtensionContext) {
           // Check if provider is configured BEFORE attempting to fetch
           const hasConfig = await config.hasConfiguredProvider(adapter.id);
           if (!hasConfig) {
-            output.appendLine(`[TinglyBox] ${adapter.id} not configured. Run "Tingly Box VSCode: Manage Settings" to configure.`);
+            output.appendLine(`[Tingly Box] ${adapter.id} not configured. Run "Tingly Box VSCode: Manage Settings" to configure.`);
             continue;
           }
 
           try {
-            output.appendLine(`[TinglyBox] Fetching models from ${adapter.id}...`);
+            output.appendLine(`[Tingly Box] Fetching models from ${adapter.id}...`);
             const models = await (adapter as any).fetchModels();
-            output.appendLine(`[TinglyBox] Loaded ${models.length} models from ${adapter.id}:`);
+            output.appendLine(`[Tingly Box] Loaded ${models.length} models from ${adapter.id}:`);
             for (const model of models) {
               output.appendLine(`  - ${model.name}`);
             }
           } catch (error) {
-            output.appendLine(`[TinglyBox] Could not fetch models from ${adapter.id}: ${error}`);
+            output.appendLine(`[Tingly Box] Could not fetch models from ${adapter.id}: ${error}`);
           }
         }
 
         // Initialize and update status bar after configuration is confirmed
         await statusBar.initialize();
       } catch (error) {
-        output.appendLine(`[TinglyBox] Could not fetch models: ${error}`);
+        output.appendLine(`[Tingly Box] Could not fetch models: ${error}`);
       }
     })();
 
@@ -202,9 +220,9 @@ export function activate(context: vscode.ExtensionContext) {
       context.globalState.update('hasShownWelcome', true);
     }
 
-    output.appendLine('[TinglyBox] Activation complete');
+    output.appendLine('[Tingly Box] Activation complete');
   } catch (error) {
-    output.appendLine(`[TinglyBox] Activation error: ${error}`);
+    output.appendLine(`[Tingly Box] Activation error: ${error}`);
     vscode.window.showErrorMessage(
       `Failed to activate Tingly Box: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -216,6 +234,6 @@ export function activate(context: vscode.ExtensionContext) {
  * Called when VSCode deactivates the extension
  */
 export function deactivate() {
-  console.log('[TinglyBox] Extension is being deactivated');
+  console.log('[Tingly Box] Extension is being deactivated');
   // Cleanup is handled automatically via context.subscriptions
 }
