@@ -257,7 +257,7 @@ export class ConfigWebviewProvider {
       <div class="guide">
         <h3>Quick Start</h3>
         <ol>
-          <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a></li>
+          <li>Install and start <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a>: <code>npx tingly-box@latest</code></li>
           <li>Enter your Tingly Box Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
           <li>Enter your API Token if required (optional for some setups)</li>
           <li>Select your API Style (OpenAI or Anthropic)</li>
@@ -292,6 +292,9 @@ export class ConfigWebviewProvider {
 
         <div class="form-group">
           <label>API Style *</label>
+          <p style="color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 8px;">
+            Note: If using Tingly Box, either style works fine.
+          </p>
           <div class="radio-group">
             <div class="radio-option">
               <input type="radio" id="styleOpenAI" name="apiStyle" value="openai" checked>
@@ -389,6 +392,9 @@ export class ConfigWebviewProvider {
             tokenInput.value = message.config.token || '';
             const radio = document.querySelector(\`input[name="apiStyle"][value="\${message.config.apiStyle}"]\`);
             if (radio) radio.checked = true;
+          } else {
+            // Set default values for new users
+            baseUrlInput.value = 'http://localhost:12580/tingly/openai';
           }
           break;
 
