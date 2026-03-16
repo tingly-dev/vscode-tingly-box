@@ -274,6 +274,7 @@ export function activate(context: vscode.ExtensionContext) {
                             vscode.window.showErrorMessage(`Failed to open Tingly Box web UI: ${errorMsg}`);
                         } else {
                             output.appendLine('[Tingly Box] Web UI opened successfully');
+                            vscode.window.showInformationMessage('Tingly Box web UI opened successfully');
                         }
 
                         if (stdout) {
