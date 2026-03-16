@@ -51,6 +51,11 @@
         "category": "Tingly Box"
       },
       {
+        "command": "tinglybox.openWebUI",
+        "title": "Open Web UI",
+        "category": "Tingly Box"
+      },
+      {
         "command": "tinglybox.status",
         "title": "Show Status",
         "category": "Tingly Box"

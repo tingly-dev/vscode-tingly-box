@@ -12,7 +12,7 @@ import { ConfigManager } from './ConfigManager.js';
  * Webview message types
  */
 export interface WebviewMessage {
-    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer';
+    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer' | 'openWebUI';
     baseUrl?: string;
     token?: string;
     apiStyle?: APIStyle;
@@ -110,6 +110,20 @@ function isStartServerMessage(msg: WebviewMessage): msg is StartServerMessage {
  */
 function isStopServerMessage(msg: WebviewMessage): msg is StopServerMessage {
     return msg.type === 'stopServer';
+}
+
+/**
+ * OpenWebUI message from webview
+ */
+export interface OpenWebUIMessage extends WebviewMessage {
+    type: 'openWebUI';
+}
+
+/**
+ * Type guard for OpenWebUIMessage
+ */
+function isOpenWebUIMessage(msg: WebviewMessage): msg is OpenWebUIMessage {
+    return msg.type === 'openWebUI';
 }
 
 export class ConfigWebviewProvider {
@@ -444,6 +458,7 @@ export class ConfigWebviewProvider {
         <div class="button-group">
           <button type="button" id="startServerBtn" class="secondary">🚀 Start</button>
           <button type="button" id="stopServerBtn" class="secondary">🛑 Stop</button>
+          <button type="button" id="openWebUIBtn" class="secondary">🌐 Open Web UI</button>
         </div>
       </div>
     </div>
@@ -551,6 +566,7 @@ export class ConfigWebviewProvider {
     const clearBtn = document.getElementById('clearBtn');
     const startServerBtn = document.getElementById('startServerBtn');
     const stopServerBtn = document.getElementById('stopServerBtn');
+    const openWebUIBtn = document.getElementById('openWebUIBtn');
     const currentStatusEl = document.getElementById('currentStatus');
 
     // Tab Navigation
@@ -649,6 +665,15 @@ export class ConfigWebviewProvider {
       });
     } else {
       console.error('stopServerBtn not found');
+    }
+
+    // Open web UI
+    if (openWebUIBtn) {
+      openWebUIBtn.addEventListener('click', () => {
+        sendMessage('openWebUI');
+      });
+    } else {
+      console.error('openWebUIBtn not found');
     }
 
     // Receive messages from extension
@@ -772,6 +797,14 @@ export class ConfigWebviewProvider {
                     await this.handleStopServer();
                 } else {
                     this.sendMessage('error', { message: 'Invalid stopServer message format' });
+                }
+                break;
+
+            case 'openWebUI':
+                if (isOpenWebUIMessage(msg)) {
+                    await this.handleOpenWebUI();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid openWebUI message format' });
                 }
                 break;
 
@@ -923,6 +956,20 @@ export class ConfigWebviewProvider {
         try {
             // Execute the stopServer command
             await vscode.commands.executeCommand('tinglybox.stopServer');
+        } catch (error) {
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Handle open web UI - trigger the openWebUI command
+     */
+    private async handleOpenWebUI(): Promise<void> {
+        try {
+            // Execute the openWebUI command
+            await vscode.commands.executeCommand('tinglybox.openWebUI');
         } catch (error) {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)

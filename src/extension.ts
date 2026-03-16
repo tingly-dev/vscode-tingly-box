@@ -258,6 +258,42 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(stopServerCommand);
         output.appendLine('[Tingly Box] Registered stop server command');
 
+        // Register open web UI command
+        const openWebUICommand = vscode.commands.registerCommand(
+            'tinglybox.openWebUI',
+            async () => {
+                try {
+                    output.appendLine('[Tingly Box] Opening Tingly Box web UI...');
+                    output.show(true);
+
+                    // Execute npx tingly-box open
+                    exec('npx tingly-box open', { encoding: 'utf-8' }, (error: unknown, stdout: string, stderr: string) => {
+                        if (error) {
+                            const errorMsg = error instanceof Error ? error.message : String(error);
+                            output.appendLine(`[Tingly Box] Open web UI error: ${errorMsg}`);
+                            vscode.window.showErrorMessage(`Failed to open Tingly Box web UI: ${errorMsg}`);
+                        } else {
+                            output.appendLine('[Tingly Box] Web UI opened successfully');
+                        }
+
+                        if (stdout) {
+                            output.append(`[Server] ${stdout}`);
+                        }
+                        if (stderr) {
+                            output.append(`[Server Error] ${stderr}`);
+                        }
+                    });
+                } catch (error) {
+                    output.appendLine(`[Tingly Box] Failed to open web UI: ${error}`);
+                    vscode.window.showErrorMessage(
+                        `Failed to open Tingly Box web UI: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                }
+            }
+        );
+        context.subscriptions.push(openWebUICommand);
+        output.appendLine('[Tingly Box] Registered open web UI command');
+
         // Auto-fetch models on activation ONLY if already configured
         (async () => {
             try {

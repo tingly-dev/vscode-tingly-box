@@ -62,6 +62,7 @@ Works perfectly on its own too:
 | `Tingly Box: Manage Settings`             | Open configuration webview               |
 | `Tingly Box: Start Server`                | Start Tingly Box server                  |
 | `Tingly Box: Stop Server`                 | Stop Tingly Box server                   |
+| `Tingly Box: Open Web UI`                 | Open Tingly Box web control panel        |
 | `Tingly Box: Show Status`                 | View current connection status           |
 | `Tingly Box: Fetch Models`                | Refresh available models from API        |
 | `Tingly Box: Manage Language Models`      | Open VSCode's language model management  |
