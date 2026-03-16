@@ -112,9 +112,16 @@ export function activate(context: vscode.ExtensionContext) {
             output.appendLine(`    Capabilities: ${model.capabilities.imageInput ? 'Vision ' : ''}${model.capabilities.toolCalling ? 'Tools' : ''}`);
           }
 
-          vscode.window.showInformationMessage(
-            `Successfully fetched ${models.length} models. Check output for details.`
+          // Prompt user to reload window to refresh VSCode's model list
+          const shouldReload = await vscode.window.showInformationMessage(
+            `Successfully fetched ${models.length} models. Please reload the window to refresh the model list.`,
+            'Reload Window',
+            'Later'
           );
+
+          if (shouldReload === 'Reload Window') {
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+          }
         } catch (error) {
           output.appendLine(`[Tingly Box] Error fetching models: ${error}`);
           ErrorHandler.handle(error, output);
