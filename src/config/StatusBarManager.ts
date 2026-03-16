@@ -10,7 +10,7 @@ import type { APIStyle } from '../types/index.js';
 /**
  * Manages the status bar item for API style display and toggling
  */
-export class StatusBarManager {
+export class StatusBarManager implements vscode.Disposable {
   private statusBarItem: vscode.StatusBarItem;
   private currentStyle: APIStyle = 'openai';
 
@@ -20,7 +20,6 @@ export class StatusBarManager {
   ) {
     // Create status bar item
     this.statusBarItem = vscode.window.createStatusBarItem(
-      'tinglybox.apiStyle',
       vscode.StatusBarAlignment.Right,
       100
     );
@@ -30,6 +29,13 @@ export class StatusBarManager {
     this.statusBarItem.command = 'tinglybox.toggleStyle';
 
     this.output.appendLine('[StatusBar] Status bar item created');
+  }
+
+  /**
+   * Initialize the status bar (show after provider is configured)
+   */
+  async initialize(): Promise<void> {
+    await this.update();
   }
 
   /**
@@ -80,13 +86,6 @@ export class StatusBarManager {
         `Failed to toggle API style: ${error instanceof Error ? error.message : String(error)}`
       );
     }
-  }
-
-  /**
-   * Get the status bar item (for registration with VSCode)
-   */
-  getItem(): vscode.StatusBarItem {
-    return this.statusBarItem;
   }
 
   /**

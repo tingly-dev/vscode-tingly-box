@@ -58,8 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create status bar manager
     const statusBar = new StatusBarManager(config, output);
-    context.subscriptions.push(statusBar.getItem());
-    output.appendLine('[TinglyBox] Registered status bar item');
+    context.subscriptions.push(statusBar);
+    output.appendLine('[TinglyBox] Registered status bar manager');
 
     // Register the language model provider with VSCode
     const providerRegistration = vscode.lm.registerLanguageModelChatProvider(
@@ -160,6 +160,9 @@ export function activate(context: vscode.ExtensionContext) {
         for (const model of models) {
           output.appendLine(`  - ${model.name}`);
         }
+
+        // Initialize and update status bar after configuration is confirmed
+        await statusBar.initialize();
       } catch (error) {
         output.appendLine(`[TinglyBox] Could not fetch models: ${error}`);
       }
