@@ -1,8 +1,8 @@
 {
   "name": "vscode-tingly-box",
   "displayName": "Tingly Box",
-  "description": "Your VSCode AI Model Provider, Connect VSCode Chat to Tingly Box with OpenAI, Anthropic, and any other AI model providers",
-  "version": "0.260316.0",
+  "description": "Bring Your Custom AI Model to VSCode Chat - supports OpenAI, Anthropic, and any other AI model providers",
+  "version": "0.260316.1",
   "publisher": "tingly-dev",
   "engines": {
     "vscode": "^1.104.0"
