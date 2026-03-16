@@ -1,18 +1,39 @@
 /**
  * Status Bar Manager
- * Manages the status bar item for displaying and toggling API style
+ * Manages the status bar item for displaying connection status and model count
  */
 
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
-import type { APIStyle } from '../types/index.js';
 
 /**
- * Manages the status bar item for API style display and toggling
+ * Connection status enum
+ */
+enum ConnectionStatus {
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  NotConfigured = 'not_configured'
+}
+
+/**
+ * Status bar state interface
+ */
+interface StatusBarState {
+  status: ConnectionStatus;
+  modelCount: number | null;
+  lastUpdated: Date;
+}
+
+/**
+ * Manages the status bar item for connection status and model count display
  */
 export class StatusBarManager implements vscode.Disposable {
   private statusBarItem: vscode.StatusBarItem;
-  private currentStyle: APIStyle = 'openai';
+  private state: StatusBarState = {
+    status: ConnectionStatus.NotConfigured,
+    modelCount: null,
+    lastUpdated: new Date()
+  };
 
   constructor(
     private readonly config: ConfigManager,
@@ -20,7 +41,7 @@ export class StatusBarManager implements vscode.Disposable {
   ) {
     // Create status bar item
     this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
+      vscode.StatusBarAlignment.Left,
       100
     );
     this.statusBarItem.name = 'Tingly Box';
@@ -42,52 +63,89 @@ export class StatusBarManager implements vscode.Disposable {
     try {
       const config = await this.config.getProviderConfig('default');
       if (!config) {
-        // Show status bar with configuration prompt
-        this.statusBarItem.text = `$(warning) Tingly Box: Setup Required`;
-        this.statusBarItem.tooltip = 'Click to configure Base URL and API Token';
-        this.statusBarItem.command = 'tinglybox.manage';
-        this.statusBarItem.show();
+        this.updateDisplay(ConnectionStatus.NotConfigured, null);
         this.output.appendLine('[StatusBar] Showing setup prompt');
         return;
       }
 
-      this.currentStyle = config.apiStyle;
-      const styleLabel = this.currentStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
-
-      this.statusBarItem.text = `$(chip) Tingly Box: ${styleLabel}`;
-      this.statusBarItem.tooltip = `Click to switch API style (current: ${styleLabel})`;
-      this.statusBarItem.command = 'tinglybox.toggleStyle';
-      this.statusBarItem.show();
-
-      this.output.appendLine(`[StatusBar] Updated display: ${styleLabel}`);
+      // Try to fetch model count to determine connection status
+      await this.refreshModelCount();
     } catch (error) {
       this.output.appendLine(`[StatusBar] Error updating: ${error}`);
     }
   }
 
   /**
-   * Toggle the API style
+   * Refresh model count by fetching from the API
    */
-  async toggleStyle(): Promise<void> {
+  async refreshModelCount(): Promise<void> {
     try {
-      const newStyle: APIStyle = this.currentStyle === 'anthropic' ? 'openai' : 'anthropic';
-      this.output.appendLine(`[StatusBar] Toggling style from ${this.currentStyle} to ${newStyle}`);
+      const config = await this.config.getProviderConfig('default');
+      if (!config) {
+        this.updateDisplay(ConnectionStatus.NotConfigured, null);
+        return;
+      }
 
-      await this.config.updateAPIStyle('default', newStyle);
-      this.currentStyle = newStyle;
+      // Try to fetch models from the API
+      const modelsUrl = config.baseUrl.endsWith('/')
+        ? `${config.baseUrl}models`
+        : `${config.baseUrl}/models`;
 
-      // Update the display
-      await this.update();
+      const response = await fetch(modelsUrl, {
+        headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
+      });
 
-      // Show notification
-      const styleLabel = newStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
-      vscode.window.showInformationMessage(`API style switched to ${styleLabel}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const modelCount = data.data?.length || 0;
+
+      this.updateDisplay(ConnectionStatus.Connected, modelCount);
+      this.output.appendLine(`[StatusBar] Connected: ${modelCount} models available`);
     } catch (error) {
-      this.output.appendLine(`[StatusBar] Error toggling style: ${error}`);
-      vscode.window.showErrorMessage(
-        `Failed to toggle API style: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.output.appendLine(`[StatusBar] Failed to fetch models: ${error}`);
+      this.updateDisplay(ConnectionStatus.Disconnected, null);
     }
+  }
+
+  /**
+   * Update the status bar display based on connection status and model count
+   */
+  private updateDisplay(status: ConnectionStatus, modelCount: number | null): void {
+    this.state = {
+      status,
+      modelCount,
+      lastUpdated: new Date()
+    };
+
+    switch (status) {
+      case ConnectionStatus.NotConfigured:
+        this.statusBarItem.text = '$(warning) Tingly Box: Setup Required';
+        this.statusBarItem.tooltip = 'Tingly Box: Not configured\nClick to setup Base URL and Token';
+        this.statusBarItem.command = 'tinglybox.openConfigWebview';
+        break;
+
+      case ConnectionStatus.Connected:
+        if (modelCount !== null && modelCount > 0) {
+          this.statusBarItem.text = `$(check) Tingly Box: ${modelCount} Models`;
+          this.statusBarItem.tooltip = `Tingly Box: Connected\n${modelCount} models available\nClick to configure`;
+        } else {
+          this.statusBarItem.text = '$(check) Tingly Box: Connected';
+          this.statusBarItem.tooltip = 'Tingly Box: Connected\nClick to configure';
+        }
+        this.statusBarItem.command = 'tinglybox.openConfigWebview';
+        break;
+
+      case ConnectionStatus.Disconnected:
+        this.statusBarItem.text = '$(circle-small) Tingly Box: Disconnected';
+        this.statusBarItem.tooltip = 'Tingly Box: Disconnected\nCheck your configuration\nClick to setup';
+        this.statusBarItem.command = 'tinglybox.openConfigWebview';
+        break;
+    }
+
+    this.statusBarItem.show();
   }
 
   /**

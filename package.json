@@ -56,11 +56,6 @@
         "category": "Tingly Box"
       },
       {
-        "command": "tinglybox.toggleStyle",
-        "title": "Tingly Box: Toggle API Style",
-        "category": "Tingly Box"
-      },
-      {
         "command": "tinglybox.manageLanguageModels",
         "title": "Tingly Box: Manage Language Models",
         "category": "Tingly Box"

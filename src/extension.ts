@@ -129,16 +129,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(fetchModelsCommand);
     output.appendLine('[Tingly Box] Registered fetch models command');
 
-    // Register toggle API style command
-    const toggleStyleCommand = vscode.commands.registerCommand(
-      'tinglybox.toggleStyle',
-      async () => {
-        await statusBar.toggleStyle();
-      }
-    );
-    context.subscriptions.push(toggleStyleCommand);
-    output.appendLine('[Tingly Box] Registered toggle style command');
-
     // Register manage language models command
     const manageLanguageModelsCommand = vscode.commands.registerCommand(
       'tinglybox.manageLanguageModels',
