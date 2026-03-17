@@ -325,21 +325,24 @@ export function activate(context: vscode.ExtensionContext) {
             }
         })();
 
-        // Show welcome message on first activation
-        const hasShownWelcome = context.globalState.get<boolean>('hasShownWelcome');
-        if (!hasShownWelcome) {
-            vscode.window
-                .showInformationMessage(
-                    'Tingly Box For VS Code is now active! Please configure your Base URL and Token to get started.',
-                    'Configure'
-                )
-                .then((selection) => {
-                    if (selection === 'Configure') {
-                        vscode.commands.executeCommand('tinglybox.openConfigWebview');
-                    }
-                });
-            context.globalState.update('hasShownWelcome', true);
-        }
+        // Show setup notification if not configured
+        (async () => {
+            const hasConfig = await config.hasConfiguredProvider('default');
+            if (!hasConfig) {
+                vscode.window
+                    .showInformationMessage(
+                        'Tingly Box requires configuration. Please set up your Base URL and Token. (You can also access settings via the status bar)',
+                        'Configure',
+                        'Dismiss'
+                    )
+                    .then((selection) => {
+                        if (selection === 'Configure') {
+                            vscode.commands.executeCommand('tinglybox.openConfigWebview');
+                        }
+                    });
+                output.appendLine('[Tingly Box] Setup notification shown (not configured)');
+            }
+        })();
 
         output.appendLine('[Tingly Box] Activation complete');
     } catch (error) {
