@@ -372,10 +372,13 @@ export class ConfigWebviewProvider {
      */
     private async handleClear(): Promise<void> {
         try {
-            await this.config.removeProviderConfig('default');
+            await this.config.clearAllConfig();
             this.sendMessage('cleared');
             await this.sendCurrentConfig();
             await this.sendStatus();
+
+            // Prompt user to reload window to clear VSCode's cached model list
+            await NoticeHelper.promptReload('Configuration cleared successfully.');
         } catch (error) {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)
