@@ -1,14 +1,27 @@
 # Tingly Box For VSCode
 
-Orchestrate your **Copilot Chat** with custom AI models powered by **Tingly Box**, 
+<div align="center">
+
+[![License: MPL-2.0](https://img.shields.io/badge/License-MPL--2.0-blue.svg)](LICENSE.txt)
+[![GitHub Stars](https://img.shields.io/github/stars/tingly-dev/vscode-tingly-box?style=social)](https://github.com/tingly-dev/vscode-tingly-box)
+
+</div>
+
+Orchestrate your **Copilot Chat** with custom AI models powered by **Tingly Box**,
 or use standalone with OpenAI, Anthropic, and any compatible providers.
 
 > Tingly Box: **Your intelligence, orchestrated** — AI Intelligence Orchestration for Solo Builders and Dev Teams
-> 
+>
 > https://github.com/tingly-dev/tingly-box
 
+> **🌟 Open Source & Free** — This extension is fully open source under MPL-2.0 license. Free to use, modify, and distribute.
+
+<div align="center">
+
 ![screen-shot](./resource/screenshot.chat.png)
-![screen-shot](./resource/screenshot.inline.png)
+<!-- ![screen-shot](./resource/screenshot.inline.png) -->
+
+</div>
 
 ## Features
 
@@ -22,10 +35,8 @@ This extension is designed to integrate seamlessly with [Tingly Box](https://git
 ### Standalone Capabilities
 Works perfectly on its own too:
 
-- **Multi-Provider Support** — Native support for OpenAI and Anthropic APIs, plus any OpenAI-compatible or Anthropic-compatible endpoints
 - **Custom Endpoints** — Connect to self-hosted models, proxies, or any OpenAI/Anthropic-compatible API
 - **Streaming Responses** — Real-time streaming chat responses with full VS Code integration
-- **Vision Support** — Models with image input capabilities (like Claude Sonnet and GPT-4V) work seamlessly
 - **Tool Calling** — Full support for models with function/tool calling capabilities
 - **Status Bar Indicator** — Shows connection status and available model count at a glance
 - **Secure Credential Storage** — API tokens stored securely in VS Code's SecretStorage
@@ -34,33 +45,18 @@ Works perfectly on its own too:
 
 ## Quick Start
 
-### Using with Tingly Box (Recommended)
-
 Install plugin and click status bar to open tingly box for vscode config webview and follow the guide.
+Recommand to use with Tingly Box.
+
+<div align="center">
 
 ![alt text](./resource/guide.png)
 
-1. Install the VSCode extension
-2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box: Manage Settings`
-3. In the **"Using with Tingly Box"** tab, click **"🚀 Start"** to launch the Tingly Box server
-4. Enter your Tingly Box URL (default: `http://localhost:12580/tingly/openai`)
-5. Select your API Style (OpenAI or Anthropic — either works with Tingly Box)
-6. Save and start chatting!
+![alt text](./resource/webview.png)
+
+</div>
 
 > **Note**: You can also start Tingly Box manually by running `npx tingly-box@latest` in your terminal.
-
-### Using with Custom Providers
-
-1. Install the extension from the VS Code Marketplace
-2. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run `Tingly Box: Manage Settings`
-3. Configure your provider:
-   - **Base URL**: Your API endpoint (e.g., `https://api.openai.com/v1/`)
-   - **Token**: Your API key
-   - **API Style**: Choose between `OpenAI` or `Anthropic` format
-4. Click "Test Connection" to verify your setup
-5. Save and start chatting!
-
-> **Note**: Custom providers must support the `/models` endpoint for automatic model discovery.
 
 ## Commands
 
@@ -145,7 +141,15 @@ Using the plugin independently requires your provider to guarantee API compatibi
 
 ## License
 
-[MPL-2.0](LICENSE.txt)
+This project is open source under the [MPL-2.0 License](LICENSE.txt).
+
+**What this means:**
+- ✅ Free to use for personal and commercial projects
+- ✅ Free to modify and extend
+- ✅ Free to distribute (with proper attribution)
+- ✅ Patent protections included
+
+See [LICENSE.txt](LICENSE.txt) for full details.
 
 ## Links
 
