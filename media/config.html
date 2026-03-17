@@ -257,7 +257,17 @@
             <li>Enter your API Token if required (optional for some setups)</li>
             <li>Select your API Style (OpenAI or Anthropic)</li>
             <li>Click "Save Configuration"</li>
+            <li><strong>⚠️ Reload VSCode window</strong> for changes to take effect (Developer: Reload Window)</li>
+            <li><strong>⚠️ Open "🤖 Language Models" manager</strong> and enable model visibility</li>
           </ol>
+        </div>
+        <div class="warning-box">
+          <h3>⚠️ Important Setup Steps</h3>
+          <p>After saving configuration, you <strong>must</strong> complete these two steps to use the models:</p>
+          <ul>
+            <li><strong>Step 1:</strong> Reload the VSCode window (<code>Ctrl+Shift+P</code> / <code>Cmd+Shift+P</code> → "Developer: Reload Window")</li>
+            <li><strong>Step 2:</strong> Click the "🤖 Language Models" button above, find your models, and enable them for use</li>
+          </ul>
         </div>
         <p><strong>Need help?</strong> Visit <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">vscode-tingly-box</a> or <a href="https://github.com/tingly-dev/tingly-box" target="_blank">tingly-box</a></p>
       </div>
@@ -272,6 +282,7 @@
           <button type="button" id="startServerBtn" class="secondary">🚀 Start</button>
           <button type="button" id="stopServerBtn" class="secondary">🛑 Stop</button>
           <button type="button" id="openWebUIBtn" class="secondary">🌐 Open Web UI</button>
+          <button type="button" id="openManagerBtn" class="secondary">🤖 Language Models</button>
         </div>
       </div>
     </div>
@@ -301,7 +312,17 @@
             <li>Select the appropriate API Style for your provider</li>
             <li>Click "Test Connection" to verify</li>
             <li>Click "Save Configuration" when done</li>
+            <li><strong>⚠️ Reload VSCode window</strong> for changes to take effect</li>
+            <li><strong>⚠️ Open "🤖 Language Models" manager</strong> and enable model visibility</li>
           </ol>
+        </div>
+        <div class="warning-box">
+          <h3>⚠️ Important Setup Steps</h3>
+          <p>After saving configuration, you <strong>must</strong> complete these two steps to use the models:</p>
+          <ul>
+            <li><strong>Step 1:</strong> Reload the VSCode window (<code>Ctrl+Shift+P</code> / <code>Cmd+Shift+P</code> → "Developer: Reload Window")</li>
+            <li><strong>Step 2:</strong> Click the "🤖 Language Models" button above, find your models, and enable them for use</li>
+          </ul>
         </div>
         <p><strong>Note:</strong> Make sure your provider supports the <code>/models</code> endpoint for automatic model discovery.</p>
       </div>
@@ -380,6 +401,7 @@
     const startServerBtn = document.getElementById('startServerBtn');
     const stopServerBtn = document.getElementById('stopServerBtn');
     const openWebUIBtn = document.getElementById('openWebUIBtn');
+    const openManagerBtn = document.getElementById('openManagerBtn');
     const currentStatusEl = document.getElementById('currentStatus');
 
     // Tab Navigation
@@ -489,6 +511,15 @@
       });
     } else {
       console.error('openWebUIBtn not found');
+    }
+
+    // Open language model manager
+    if (openManagerBtn) {
+      openManagerBtn.addEventListener('click', () => {
+        sendMessage('openManager');
+      });
+    } else {
+      console.error('openManagerBtn not found');
     }
 
     // Receive messages from extension

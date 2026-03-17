@@ -14,7 +14,7 @@ import { ConfigManager } from './ConfigManager.js';
  * Webview message types
  */
 export interface WebviewMessage {
-    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer' | 'openWebUI';
+    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer' | 'openWebUI' | 'openManager';
     baseUrl?: string;
     token?: string;
     apiStyle?: APIStyle;
@@ -126,6 +126,20 @@ export interface OpenWebUIMessage extends WebviewMessage {
  */
 function isOpenWebUIMessage(msg: WebviewMessage): msg is OpenWebUIMessage {
     return msg.type === 'openWebUI';
+}
+
+/**
+ * OpenManager message from webview
+ */
+export interface OpenManagerMessage extends WebviewMessage {
+    type: 'openManager';
+}
+
+/**
+ * Type guard for OpenManagerMessage
+ */
+function isOpenManagerMessage(msg: WebviewMessage): msg is OpenManagerMessage {
+    return msg.type === 'openManager';
 }
 
 export class ConfigWebviewProvider {
@@ -274,6 +288,14 @@ export class ConfigWebviewProvider {
                     await this.handleOpenWebUI();
                 } else {
                     this.sendMessage('error', { message: 'Invalid openWebUI message format' });
+                }
+                break;
+
+            case 'openManager':
+                if (isOpenManagerMessage(msg)) {
+                    await this.handleOpenManager();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid openManager message format' });
                 }
                 break;
 
@@ -442,6 +464,20 @@ export class ConfigWebviewProvider {
         try {
             // Execute the openWebUI command
             await vscode.commands.executeCommand('tinglybox.openWebUI');
+        } catch (error) {
+            this.sendMessage('error', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Handle open manager - trigger VSCode's language model management UI
+     */
+    private async handleOpenManager(): Promise<void> {
+        try {
+            // Execute VSCode's built-in language model management command
+            await vscode.commands.executeCommand('workbench.action.chat.manage');
         } catch (error) {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)
