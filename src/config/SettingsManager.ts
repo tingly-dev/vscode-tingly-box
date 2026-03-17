@@ -66,8 +66,8 @@ export class SettingsManager {
     const currentConfig = await this.config.getProviderConfig(providerId);
     const baseUrl = await vscode.window.showInputBox({
       prompt: 'Enter your API Base URL',
-      placeHolder: 'http://localhost:12580/tingly/openai',
-      value: currentConfig?.baseUrl || 'http://localhost:12580/tingly/openai',
+      placeHolder: 'http://localhost:12580/tingly/vscode',
+      value: currentConfig?.baseUrl || 'http://localhost:12580/tingly/vscode',
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
           return 'Base URL cannot be empty';
