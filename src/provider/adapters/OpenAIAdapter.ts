@@ -4,7 +4,7 @@
  * Handles OpenAI-style streaming responses including tool calls
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
+import type { ModelInfo, ProviderMessage, ChatOptions, Tool } from '../../types/index.js';
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
@@ -194,7 +194,7 @@ export class OpenAIAdapter extends BaseAPIAdapter {
     messages: ProviderMessage[],
     options: ChatOptions
   ): Record<string, unknown> {
-    return {
+    const requestBody: Record<string, unknown> = {
       model,
       messages: MessageConverter.toOpenAIFormat(messages),
       stream: true,
@@ -203,6 +203,21 @@ export class OpenAIAdapter extends BaseAPIAdapter {
       stop: options.stop,
       ...(options.extra || {}),
     };
+
+    // Add tools if provided
+    if (options.tools && options.tools.length > 0) {
+      requestBody.tools = options.tools.map((tool: Tool) => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description || '',
+          parameters: tool.inputSchema || { type: 'object', properties: {} },
+        },
+      }));
+      this.log(`Including ${options.tools.length} tools in request`);
+    }
+
+    return requestBody;
   }
 
   /**
@@ -253,6 +268,9 @@ export class OpenAIAdapter extends BaseAPIAdapter {
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
 
+    // Track tool calls being built (indexed by position in delta)
+    const toolCallsBuffer = new Map<number, { id: string; name: string; arguments: string }>();
+
     try {
       while (true) {
         // Check cancellation before reading
@@ -284,9 +302,67 @@ export class OpenAIAdapter extends BaseAPIAdapter {
             continue;
           }
 
-          const content = this.parseChunk(trimmed);
-          if (content) {
-            onChunk(content);
+          const data = trimmed.slice(5).trim();
+
+          if (data === '[DONE]') {
+            // Emit any completed tool calls before finishing
+            for (const [index, toolCall] of toolCallsBuffer) {
+              if (toolCall.name && toolCall.arguments) {
+                try {
+                  const args = JSON.parse(toolCall.arguments);
+                  onChunk(`\n[Tool Call: ${toolCall.name} with args: ${JSON.stringify(args)}]`);
+                } catch {
+                  onChunk(`\n[Tool Call: ${toolCall.name} with args: ${toolCall.arguments}]`);
+                }
+              }
+            }
+            toolCallsBuffer.clear();
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(data) as OpenAIChatResponse;
+            const delta = parsed.choices[0]?.delta;
+
+            if (!delta) {
+              continue;
+            }
+
+            // Handle text content
+            const content = delta.content;
+            if (content) {
+              onChunk(content);
+            }
+
+            // Handle tool calls
+            const toolCalls = delta.tool_calls;
+            if (toolCalls && toolCalls.length > 0) {
+              for (const tc of toolCalls) {
+                const index = tc.index;
+
+                if (!toolCallsBuffer.has(index)) {
+                  toolCallsBuffer.set(index, { id: '', name: '', arguments: '' });
+                }
+
+                const current = toolCallsBuffer.get(index)!;
+
+                if (tc.id) {
+                  current.id = tc.id;
+                }
+
+                if (tc.function?.name) {
+                  current.name = tc.function.name;
+                }
+
+                if (tc.function?.arguments) {
+                  current.arguments += tc.function.arguments;
+                }
+
+                this.log(`Tool call delta [${index}]: name=${current.name}, args_length=${current.arguments.length}`);
+              }
+            }
+          } catch (parseError) {
+            this.log(`Failed to parse SSE data: ${parseError}`);
           }
         }
 

@@ -92,6 +92,18 @@ export interface ToolResultPart {
 }
 
 /**
+ * Tool definition for function calling
+ */
+export interface Tool {
+  /** Tool name */
+  name: string;
+  /** Tool description */
+  description?: string;
+  /** Tool input schema (JSON Schema) */
+  inputSchema?: Record<string, unknown>;
+}
+
+/**
  * Chat request options
  */
 export interface ChatOptions {
@@ -101,6 +113,8 @@ export interface ChatOptions {
   maxTokens?: number;
   /** Stop sequences */
   stop?: string[];
+  /** Available tools for function calling */
+  tools?: Tool[];
   /** Additional provider-specific options */
   extra?: Record<string, unknown>;
 }

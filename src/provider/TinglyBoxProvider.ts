@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { ModelInfo } from '../types/index.js';
+import type { ModelInfo, Tool } from '../types/index.js';
 import { ConfigManager } from '../config/ConfigManager.js';
 import { ProviderRegistry } from './ProviderRegistry.js';
 import { MessageConverter } from '../utils/MessageConverter.js';
@@ -121,7 +121,7 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
   async provideLanguageModelChatResponse(
     model: vscode.LanguageModelChatInformation,
     messages: readonly vscode.LanguageModelChatRequestMessage[],
-    _options: vscode.ProvideLanguageModelChatResponseOptions,
+    options: vscode.ProvideLanguageModelChatResponseOptions,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     token: vscode.CancellationToken
   ): Promise<void> {
@@ -151,6 +151,17 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
         `[Chat] Processing ${providerMessages.length} messages`
       );
 
+      // Convert VSCode tools to internal Tool format
+      const tools: Tool[] = (options.tools || []).map(vscodeTool => ({
+        name: vscodeTool.name,
+        description: vscodeTool.description,
+        inputSchema: vscodeTool.inputSchema as Record<string, unknown>,
+      }));
+
+      if (tools.length > 0) {
+        this.output.appendLine(`[Chat] Passing ${tools.length} tools to provider`);
+      }
+
       // Create abort controller for cancellation
       const abortController = new AbortController();
 
@@ -167,8 +178,9 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
         {
           // VSCode doesn't provide tokenOptions in the current API version
           // Use default temperature for now
-          temperature: 0.7,
+          // temperature: 0.7,
           maxTokens: model.maxOutputTokens,
+          tools: tools.length > 0 ? tools : undefined,
         },
         (chunk: string) => {
           // Stream each chunk back to VSCode

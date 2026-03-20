@@ -4,7 +4,7 @@
  * Handles Anthropic-style streaming responses including thinking and tool use
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
+import type { ModelInfo, ProviderMessage, ChatOptions, Tool } from '../../types/index.js';
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
@@ -129,6 +129,16 @@ export class AnthropicAdapter extends BaseAPIAdapter {
         this.log(`System message included: ${systemMessage.substring(0, 50)}...`);
       }
 
+      // Add tools if provided
+      if (options.tools && options.tools.length > 0) {
+        requestBody.tools = options.tools.map((tool: Tool) => ({
+          name: tool.name,
+          description: tool.description || '',
+          input_schema: tool.inputSchema || { type: 'object', properties: {} },
+        }));
+        this.log(`Including ${options.tools.length} tools in request`);
+      }
+
       // Build API URL
       const apiUrl = config.baseUrl.endsWith('/')
         ? `${config.baseUrl}messages`
@@ -224,6 +234,9 @@ export class AnthropicAdapter extends BaseAPIAdapter {
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
 
+    // Track current tool call being built
+    let currentToolCall: { id: string; name: string; arguments: string } | null = null;
+
     try {
       while (true) {
         // Check cancellation before reading
@@ -287,6 +300,12 @@ export class AnthropicAdapter extends BaseAPIAdapter {
                   this.log('Anthropic: text content block started');
                 } else if (parsed.content_block?.type === 'tool_use') {
                   this.log(`Anthropic: tool_use block started - ${parsed.content_block.name}`);
+                  // Initialize new tool call
+                  currentToolCall = {
+                    id: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                    name: parsed.content_block.name || '',
+                    arguments: '',
+                  };
                 } else if (parsed.content_block?.type === 'thinking') {
                   this.log('Anthropic: thinking block started (extended thinking)');
                 }
@@ -303,11 +322,26 @@ export class AnthropicAdapter extends BaseAPIAdapter {
                 } else if (parsed.delta?.type === 'input_json_delta' && parsed.delta?.partial_json) {
                   // Tool arguments being streamed
                   this.log(`Anthropic: tool arguments partial: ${parsed.delta.partial_json}`);
+                  if (currentToolCall) {
+                    currentToolCall.arguments += parsed.delta.partial_json;
+                  }
                 }
                 break;
 
               case 'content_block_stop':
-                // Content block completion
+                // Content block completion - emit completed tool call
+                if (currentToolCall) {
+                  this.log(`Anthropic: tool_use completed - ${currentToolCall.name}`);
+                  // Format tool call as text for now
+                  // TODO: Update architecture to properly report tool calls to VSCode
+                  try {
+                    const toolArgs = JSON.parse(currentToolCall.arguments);
+                    onChunk(`\n[Tool Call: ${currentToolCall.name} with args: ${JSON.stringify(toolArgs)}]`);
+                  } catch {
+                    onChunk(`\n[Tool Call: ${currentToolCall.name} with args: ${currentToolCall.arguments}]`);
+                  }
+                  currentToolCall = null;
+                }
                 this.log('Anthropic: content_block_stop event received');
                 break;
 
