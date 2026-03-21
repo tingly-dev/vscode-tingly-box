@@ -144,12 +144,22 @@ export class AnthropicAdapter extends BaseAPIAdapter {
       // Prepare tools
       let tools: Array<{ name: string; description: string; input_schema: any }> | undefined;
       if (options.tools && options.tools.length > 0) {
-        tools = options.tools.map(tool => ({
-          name: tool.name,
-          description: tool.description || '',
-          input_schema: tool.inputSchema || { type: 'object', properties: {} },
-        }));
-        this.log(`Including ${options.tools.length} tools`);
+        tools = options.tools.map(tool => {
+          // Ensure input_schema has at least type: 'object'
+          const inputSchema = tool.inputSchema || { properties: {} };
+          if (!inputSchema.type) {
+            inputSchema.type = 'object';
+          }
+          return {
+            name: tool.name,
+            description: tool.description || '',
+            input_schema: inputSchema,
+          };
+        });
+        this.log(`Including ${options.tools.length} tools:`);
+        for (const tool of tools) {
+          this.log(`  - ${tool.name}: ${JSON.stringify(tool.input_schema).substring(0, 100)}...`);
+        }
       }
 
       // Create abort controller for cancellation
@@ -183,17 +193,22 @@ export class AnthropicAdapter extends BaseAPIAdapter {
       let currentToolUse: {
         id: string;
         name: string;
-        input: Record<string, unknown>;
+        inputJson: string;
       } | null = null;
 
       for await (const chunk of stream) {
         if (chunk.type === 'content_block_start') {
           if (chunk.content_block.type === 'tool_use') {
             // Start accumulating a new tool call
+            // Note: content_block.input might be pre-filled by some providers
+            const initialInput = chunk.content_block.input;
+            const initialJson = initialInput
+              ? JSON.stringify(initialInput)
+              : '';
             currentToolUse = {
               id: chunk.content_block.id,
               name: chunk.content_block.name,
-              input: (chunk.content_block.input || {}) as Record<string, unknown>,
+              inputJson: initialJson,
             };
           }
         } else if (chunk.type === 'content_block_delta') {
@@ -202,24 +217,35 @@ export class AnthropicAdapter extends BaseAPIAdapter {
             chunkCount++;
             onPart({ type: 'text', text: delta.text });
           } else if (delta.type === 'input_json_delta' && currentToolUse) {
-            // Accumulate tool input (partial JSON)
-            try {
-              const partial = JSON.parse(delta.partial_json);
-              currentToolUse.input = { ...currentToolUse.input, ...partial };
-            } catch {
-              // Partial JSON might not be valid yet, skip
-            }
+            // Accumulate the partial JSON string
+            currentToolUse.inputJson += delta.partial_json;
           }
         } else if (chunk.type === 'content_block_stop') {
-          // Tool use block complete
+          // Tool use block complete - parse and send
           if (currentToolUse) {
-            toolCallCount++;
-            onPart({
-              type: 'tool_call',
-              id: currentToolUse.id,
-              name: currentToolUse.name,
-              arguments: currentToolUse.input,
-            });
+            try {
+              const input = currentToolUse.inputJson.length > 0
+                ? JSON.parse(currentToolUse.inputJson)
+                : {};
+
+              toolCallCount++;
+              onPart({
+                type: 'tool_call',
+                id: currentToolUse.id,
+                name: currentToolUse.name,
+                arguments: input,
+              });
+            } catch (e) {
+              // If JSON parsing fails, send empty arguments
+              this.log(`Failed to parse tool arguments: ${e}`);
+              toolCallCount++;
+              onPart({
+                type: 'tool_call',
+                id: currentToolUse.id,
+                name: currentToolUse.name,
+                arguments: {},
+              });
+            }
             currentToolUse = null;
           }
         }
