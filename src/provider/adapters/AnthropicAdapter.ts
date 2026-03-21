@@ -1,39 +1,54 @@
 /**
  * Anthropic-compatible provider adapter
- * Implements chat functionality using Anthropic-compatible APIs
+ * Implements chat functionality using official Anthropic SDK
  * Handles Anthropic-style streaming responses including thinking and tool use
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions, Tool } from '../../types/index.js';
-import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
+import Anthropic from '@anthropic-ai/sdk';
+import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../../types/index.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
-import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { API_KEY_REQUIREMENTS } from '../../constants/ModelLimits.js';
+import { buildApiUrl } from '../../utils/UrlHelper.js';
+import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 
 /**
- * Anthropic streaming event types
- */
-type AnthropicEvent =
-  | { type: 'message_start'; message: { id: string; role: string; content: unknown[] } }
-  | { type: 'message_delta'; delta: { stop_reason: string | null }; usage: unknown }
-  | { type: 'message_stop' }
-  | { type: 'content_block_start'; index: number; content_block: { type: string; text?: string; name?: string } }
-  | { type: 'content_block_delta'; index: number; delta: { type: string; text?: string; thinking?: string; partial_json?: string } }
-  | { type: 'content_block_stop'; index: number }
-  | { type: 'error'; error: { type: string; message: string } }
-  | { type: 'ping' };
-
-/**
- * Adapter for Anthropic-compatible APIs
+ * Adapter for Anthropic-compatible APIs using official Anthropic SDK
  */
 export class AnthropicAdapter extends BaseAPIAdapter {
   readonly id = 'default';
   readonly apiStyle = 'anthropic' as const;
   readonly displayName = 'Tingly Box (Anthropic Style)';
 
+  private client?: Anthropic;
+
+  /**
+   * Get or create Anthropic client instance
+   */
+  private async getClient(): Promise<Anthropic> {
+    if (!this.configManager) {
+      throw new Error('ConfigManager not initialized');
+    }
+
+    const config = await this.configManager.getProviderConfig(this.id);
+    if (!config) {
+      throw new Error(
+        `${this.displayName} not configured. Please run "Tingly Box: Manage Settings" to configure.`
+      );
+    }
+
+    if (!this.client) {
+      this.client = new Anthropic({
+        baseURL: config.baseUrl,
+        apiKey: config.token || '', // Anthropic SDK allows empty key
+      });
+    }
+
+    return this.client;
+  }
+
   /**
    * Fetch models from remote API
-   * Always fetch from provider endpoint - no fallback
+   * Note: Anthropic SDK doesn't have a models.list() method, so we use fetch
    */
   protected async fetchModels(): Promise<ModelInfo[]> {
     if (!this.configManager) {
@@ -46,9 +61,7 @@ export class AnthropicAdapter extends BaseAPIAdapter {
     }
 
     // Try to fetch models from the provider's models endpoint
-    const modelsUrl = config.baseUrl.endsWith('/')
-      ? `${config.baseUrl}models`
-      : `${config.baseUrl}/models`;
+    const modelsUrl = buildApiUrl(config.baseUrl, 'models');
 
     this.log(`Fetching models from: ${modelsUrl}`);
 
@@ -62,34 +75,42 @@ export class AnthropicAdapter extends BaseAPIAdapter {
       headers['x-api-key'] = config.token;
     }
 
-    const response = await fetch(modelsUrl, {
-      method: 'GET',
-      headers,
-    });
+    try {
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers,
+      });
 
-    this.log(`Models API response status: ${response.status} ${response.statusText}`);
+      this.log(`Models API response status: ${response.status} ${response.statusText}`);
 
-    if (!response.ok) {
-      const body = await response.text();
-      this.log(`Models API error response: ${body.substring(0, 200)}`);
-      const error = await ErrorHandler.createAPIError(response, body);
-      throw error;
+      if (!response.ok) {
+        const body = await response.text();
+        this.log(`Models API error response: ${body.substring(0, 200)}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as OpenAIModelsResponse;
+      this.log(`Received ${data.data.length} models from API`);
+      this.cachedModels = this.parseModelsFromAPI(data, this.id);
+      return this.cachedModels;
+    } catch (error) {
+      this.log(`Failed to fetch models: ${error}`);
+      this.log(`Returning empty model list for Anthropic-style API`);
+
+      // Return empty array on error
+      this.cachedModels = [];
+      return this.cachedModels;
     }
-
-    const data = await response.json() as OpenAIModelsResponse;
-    this.log(`Received ${data.data.length} models from API`);
-    this.cachedModels = this.parseModelsFromAPI(data, this.id);
-    return this.cachedModels;
   }
 
   /**
-   * Send a chat request with streaming support
+   * Send a chat request with streaming support using Anthropic SDK
    */
   async chat(
     model: string,
     messages: ProviderMessage[],
     options: ChatOptions,
-    onChunk: (chunk: string) => void,
+    onPart: (part: ResponsePart) => void,
     signal: AbortSignal
   ): Promise<void> {
     if (!this.configManager) {
@@ -110,70 +131,101 @@ export class AnthropicAdapter extends BaseAPIAdapter {
     this.log(`Messages count: ${messages.length}`);
 
     try {
-      // Extract system message and convert messages to Anthropic format
-      const [systemMessage, filteredMessages] = MessageConverter.extractSystemMessage(messages);
-      const anthropicMessages = MessageConverter.toAnthropicFormat(filteredMessages);
+      const client = await this.getClient();
 
-      // Build request body for Anthropic-style API
-      const requestBody: Record<string, unknown> = {
-        model: modelName,
-        messages: anthropicMessages,
-        max_tokens: options.maxTokens || 4096,
-        temperature: options.temperature ?? 0.7,
-        stream: true,
-      };
+      // Convert provider messages to Anthropic format
+      const anthropicMessages = MessageConverter.toAnthropicFormat(messages);
 
-      // Add system message if present
-      if (systemMessage) {
-        requestBody.system = systemMessage;
-        this.log(`System message included: ${systemMessage.substring(0, 50)}...`);
-      }
+      this.log(`Converted ${anthropicMessages.length} messages for Anthropic`);
 
-      // Add tools if provided
+      // Extract system message
+      const [systemMessage] = MessageConverter.extractSystemMessage(messages);
+
+      // Prepare tools
+      let tools: Array<{ name: string; description: string; input_schema: any }> | undefined;
       if (options.tools && options.tools.length > 0) {
-        requestBody.tools = options.tools.map((tool: Tool) => ({
+        tools = options.tools.map(tool => ({
           name: tool.name,
           description: tool.description || '',
           input_schema: tool.inputSchema || { type: 'object', properties: {} },
         }));
-        this.log(`Including ${options.tools.length} tools in request`);
+        this.log(`Including ${options.tools.length} tools`);
       }
 
-      // Build API URL
-      const apiUrl = config.baseUrl.endsWith('/')
-        ? `${config.baseUrl}messages`
-        : `${config.baseUrl}/messages`;
+      // Create abort controller for cancellation
+      const abortController = new AbortController();
 
-      this.log(`Anthropic API URL: ${apiUrl}`);
+      // Hook up VSCode's cancellation token to our abort controller
+      signal.addEventListener('abort', () => {
+        this.log('Chat request cancelled by user');
+        abortController.abort();
+      }, { once: true });
 
-      // Build headers with conditional authorization
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-      };
-
-      if (config.token) {
-        headers['x-api-key'] = config.token;
-      }
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-        signal,
+      // Use Anthropic SDK for streaming chat
+      const stream = await client.messages.create({
+        model: modelName,
+        messages: anthropicMessages as any,
+        system: systemMessage || undefined,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens || 8192,
+        stop_sequences: options.stop,
+        tools: tools,
+        stream: true,
+      }, {
+        signal: abortController.signal as any,
       });
 
-      this.log(`Anthropic API response status: ${response.status} ${response.statusText}`);
+      // Stream the text chunks and tool calls
+      let chunkCount = 0;
+      let toolCallCount = 0;
 
-      if (!response.ok) {
-        const body = await response.text();
-        this.log(`Anthropic API error response: ${body.substring(0, 200)}`);
-        const error = await ErrorHandler.createAPIError(response, body);
-        throw error;
+      // Track current tool_use block being accumulated
+      let currentToolUse: {
+        id: string;
+        name: string;
+        input: Record<string, unknown>;
+      } | null = null;
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'content_block_start') {
+          if (chunk.content_block.type === 'tool_use') {
+            // Start accumulating a new tool call
+            currentToolUse = {
+              id: chunk.content_block.id,
+              name: chunk.content_block.name,
+              input: (chunk.content_block.input || {}) as Record<string, unknown>,
+            };
+          }
+        } else if (chunk.type === 'content_block_delta') {
+          const delta = chunk.delta;
+          if (delta.type === 'text_delta') {
+            chunkCount++;
+            onPart({ type: 'text', text: delta.text });
+          } else if (delta.type === 'input_json_delta' && currentToolUse) {
+            // Accumulate tool input (partial JSON)
+            try {
+              const partial = JSON.parse(delta.partial_json);
+              currentToolUse.input = { ...currentToolUse.input, ...partial };
+            } catch {
+              // Partial JSON might not be valid yet, skip
+            }
+          }
+        } else if (chunk.type === 'content_block_stop') {
+          // Tool use block complete
+          if (currentToolUse) {
+            toolCallCount++;
+            onPart({
+              type: 'tool_call',
+              id: currentToolUse.id,
+              name: currentToolUse.name,
+              arguments: currentToolUse.input,
+            });
+            currentToolUse = null;
+          }
+        }
       }
 
-      // Parse Anthropic SSE stream
-      await this.parseAnthropicStream(response, onChunk, signal);
+      this.log(`Chat request completed successfully (${chunkCount} text chunks, ${toolCallCount} tool calls streamed)`);
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -184,193 +236,12 @@ export class AnthropicAdapter extends BaseAPIAdapter {
       }
       throw error;
     }
-
-    this.log('Chat request completed successfully');
   }
 
   /**
    * Validate API key format for Anthropic
    */
   protected validateApiKey(key: string): boolean {
-    // Anthropic API keys should be sufficiently long
     return key.length >= API_KEY_REQUIREMENTS.ANTHROPIC_MIN_LENGTH;
-  }
-
-  /**
-   * Format request for Anthropic API (not used directly, chat handles it)
-   */
-  protected formatRequest(
-    model: string,
-    messages: ProviderMessage[],
-    options: ChatOptions
-  ): Record<string, unknown> {
-    // This is implemented in the chat method directly
-    return { model, messages, options };
-  }
-
-  /**
-   * Parse streaming chunk from Anthropic API response
-   * Not used directly, parseAnthropicStream handles the full event parsing
-   */
-  protected parseChunk(): string | null {
-    // Anthropic uses event-based streaming, not simple chunks
-    return null;
-  }
-
-  /**
-   * Parse Anthropic-style Server-Sent Events stream
-   * Handles all Anthropic streaming event types
-   */
-  private async parseAnthropicStream(
-    response: Response,
-    onChunk: (chunk: string) => void,
-    signal: AbortSignal
-  ): Promise<void> {
-    if (!response.body) {
-      throw new Error('Response body is empty');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
-
-    // Track current tool call being built
-    let currentToolCall: { id: string; name: string; arguments: string } | null = null;
-
-    try {
-      while (true) {
-        // Check cancellation before reading
-        if (signal.aborted) {
-          this.log('Anthropic stream parsing aborted by cancellation signal');
-          break;
-        }
-
-        const { done, value } = await reader.read();
-
-        if (done || signal.aborted) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          // Check cancellation during line processing
-          if (signal.aborted) {
-            this.log('Anthropic stream parsing aborted during line processing');
-            break;
-          }
-
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data:')) {
-            continue;
-          }
-
-          const data = trimmed.slice(5).trim();
-
-          if (data === '[DONE]') {
-            continue;
-          }
-
-          try {
-            const parsed = JSON.parse(data) as AnthropicEvent;
-
-            // Handle different Anthropic event types
-            switch (parsed.type) {
-              case 'message_start':
-                // Message initialization event
-                this.log('Anthropic: message_start event received');
-                break;
-
-              case 'message_delta':
-                // Message completion event (contains usage info)
-                this.log(`Anthropic: message_delta event - stop_reason: ${parsed.delta?.stop_reason}`);
-                break;
-
-              case 'message_stop':
-                // Message completion event
-                this.log('Anthropic: message_stop event received');
-                break;
-
-              case 'content_block_start':
-                // Content block initialization
-                if (parsed.content_block?.type === 'text') {
-                  this.log('Anthropic: text content block started');
-                } else if (parsed.content_block?.type === 'tool_use') {
-                  this.log(`Anthropic: tool_use block started - ${parsed.content_block.name}`);
-                  // Initialize new tool call
-                  currentToolCall = {
-                    id: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-                    name: parsed.content_block.name || '',
-                    arguments: '',
-                  };
-                } else if (parsed.content_block?.type === 'thinking') {
-                  this.log('Anthropic: thinking block started (extended thinking)');
-                }
-                break;
-
-              case 'content_block_delta':
-                // Content delta updates
-                if (parsed.delta?.type === 'text_delta' && parsed.delta?.text) {
-                  // Regular text content
-                  onChunk(parsed.delta.text);
-                } else if (parsed.delta?.type === 'thinking_delta' && parsed.delta?.thinking) {
-                  // Extended thinking content (not shown to user)
-                  this.log(`Anthropic: thinking content received (${parsed.delta.thinking.length} chars)`);
-                } else if (parsed.delta?.type === 'input_json_delta' && parsed.delta?.partial_json) {
-                  // Tool arguments being streamed
-                  this.log(`Anthropic: tool arguments partial: ${parsed.delta.partial_json}`);
-                  if (currentToolCall) {
-                    currentToolCall.arguments += parsed.delta.partial_json;
-                  }
-                }
-                break;
-
-              case 'content_block_stop':
-                // Content block completion - emit completed tool call
-                if (currentToolCall) {
-                  this.log(`Anthropic: tool_use completed - ${currentToolCall.name}`);
-                  // Format tool call as text for now
-                  // TODO: Update architecture to properly report tool calls to VSCode
-                  try {
-                    const toolArgs = JSON.parse(currentToolCall.arguments);
-                    onChunk(`\n[Tool Call: ${currentToolCall.name} with args: ${JSON.stringify(toolArgs)}]`);
-                  } catch {
-                    onChunk(`\n[Tool Call: ${currentToolCall.name} with args: ${currentToolCall.arguments}]`);
-                  }
-                  currentToolCall = null;
-                }
-                this.log('Anthropic: content_block_stop event received');
-                break;
-
-              case 'error':
-                // Error event
-                this.log(`Anthropic: error event - ${parsed.error?.message}`);
-                throw new Error(parsed.error?.message || 'Anthropic API error');
-
-              case 'ping':
-                // Keep-alive ping
-                this.log('Anthropic: ping event received');
-                break;
-
-              default:
-                this.log(`Anthropic: unknown event type: ${(parsed as { type: string }).type}`);
-            }
-          } catch (parseError) {
-            // Ignore parse errors for individual events
-            this.log(`Anthropic: failed to parse event: ${parseError}`);
-          }
-        }
-
-        // Exit outer loop if aborted during inner loop
-        if (signal.aborted) {
-          break;
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
   }
 }

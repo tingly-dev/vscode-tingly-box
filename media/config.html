@@ -515,9 +515,11 @@
 
         // Test connection
         testBtn.addEventListener('click', () => {
+            const apiStyle = document.querySelector('input[name="apiStyle"]:checked').value;
             sendMessage('test', {
                 baseUrl: baseUrlInput.value,
-                token: tokenInput.value
+                token: tokenInput.value,
+                apiStyle: apiStyle
             });
         });
 

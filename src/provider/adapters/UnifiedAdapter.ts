@@ -3,7 +3,7 @@
  * Switches between OpenAI and Anthropic implementations based on configuration
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../../types/index.js';
+import type { ModelInfo, ProviderMessage, ChatOptions, ResponsePart } from '../../types/index.js';
 import { BaseProviderAdapter } from '../BaseProvider.js';
 import { ConfigManager } from '../../config/ConfigManager.js';
 import { OpenAIAdapter } from './OpenAIAdapter.js';
@@ -80,11 +80,11 @@ export class UnifiedAdapter extends BaseProviderAdapter {
     model: string,
     messages: ProviderMessage[],
     options: ChatOptions,
-    onChunk: (chunk: string) => void,
+    onPart: (part: ResponsePart) => void,
     signal: AbortSignal
   ): Promise<void> {
     const adapter = await this.getActiveAdapter();
-    return adapter.chat(model, messages, options, onChunk, signal);
+    return adapter.chat(model, messages, options, onPart, signal);
   }
 
   /**

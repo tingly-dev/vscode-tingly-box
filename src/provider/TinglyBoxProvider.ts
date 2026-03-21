@@ -182,9 +182,17 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
           maxTokens: model.maxOutputTokens,
           tools: tools.length > 0 ? tools : undefined,
         },
-        (chunk: string) => {
-          // Stream each chunk back to VSCode
-          progress.report(new vscode.LanguageModelTextPart(chunk));
+        (part) => {
+          // Route based on part type
+          if (part.type === 'text') {
+            progress.report(new vscode.LanguageModelTextPart(part.text));
+          } else if (part.type === 'tool_call') {
+            progress.report(new vscode.LanguageModelToolCallPart(
+              part.id,
+              part.name,
+              part.arguments
+            ));
+          }
         },
         abortController.signal
       );
@@ -217,9 +225,12 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
         count = TokenCounter.estimateVSCodeMessage(text);
       }
 
-      this.output.appendLine(
-        `[TokenCount] Estimated ${count} tokens for ${typeof text === 'string' ? 'text' : 'message'}`
-      );
+      // Skip logging for small token counts to reduce noise
+      if (count > 10) {
+        this.output.appendLine(
+          `[TokenCount] Estimated ${count} tokens for ${typeof text === 'string' ? 'text' : 'message'}`
+        );
+      }
 
       return count;
     } catch (error) {

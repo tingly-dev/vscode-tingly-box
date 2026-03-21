@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ConfigManager } from './ConfigManager.js';
+import { buildApiUrl } from '../utils/UrlHelper.js';
 
 /**
  * Connection status enum
@@ -87,13 +88,17 @@ export class StatusBarManager implements vscode.Disposable {
       }
 
       // Try to fetch models from the API
-      const modelsUrl = config.baseUrl.endsWith('/')
-        ? `${config.baseUrl}models`
-        : `${config.baseUrl}/models`;
+      const modelsUrl = buildApiUrl(config.baseUrl, 'models');
+      const headers: Record<string, string> = {};
+      if (config.token) {
+        if (config.apiStyle === 'anthropic') {
+          headers['x-api-key'] = config.token;
+        } else {
+          headers['Authorization'] = `Bearer ${config.token}`;
+        }
+      }
 
-      const response = await fetch(modelsUrl, {
-        headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
-      });
+      const response = await fetch(modelsUrl, { headers });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

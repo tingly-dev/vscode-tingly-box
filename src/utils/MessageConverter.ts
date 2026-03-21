@@ -24,14 +24,61 @@ export class MessageConverter {
   static toProviderMessages(
     messages: readonly vscode.LanguageModelChatRequestMessage[]
   ): ProviderMessage[] {
-    return messages.map((msg) => ({
-      role: msg.role === vscode.LanguageModelChatMessageRole.User
+    return messages.map((msg) => {
+      const role = msg.role === vscode.LanguageModelChatMessageRole.User
         ? 'user'
-        : 'assistant',
-      content: MessageConverter.extractContent(
-        msg.content as readonly vscode.LanguageModelInputPart[]
-      ),
-    }));
+        : 'assistant';
+
+      const content = msg.content as readonly vscode.LanguageModelInputPart[];
+
+      // Check for tool result parts (from VSCode after tool execution)
+      const toolResults = content.filter(
+        (part): part is vscode.LanguageModelToolResultPart =>
+          part instanceof vscode.LanguageModelToolResultPart
+      );
+
+      if (toolResults.length > 0) {
+        // VSCode sends tool results as user messages with ToolResultPart
+        // Convert to provider tool result format
+        return {
+          role: 'user',
+          content: toolResults.map(tr => ({
+            type: 'tool_result' as const,
+            id: tr.callId,
+            content: tr.content.map(c => {
+              if (c instanceof vscode.LanguageModelTextPart) {
+                return c.value;
+              }
+              return '';
+            }).join(''),
+          })),
+        };
+      }
+
+      // Check for tool call parts (from previous assistant messages)
+      const toolCalls = content.filter(
+        (part): part is vscode.LanguageModelToolCallPart =>
+          part instanceof vscode.LanguageModelToolCallPart
+      );
+
+      if (toolCalls.length > 0) {
+        return {
+          role: 'assistant',
+          content: toolCalls.map(tc => ({
+            type: 'tool_call' as const,
+            id: tc.callId,
+            name: tc.name,
+            arguments: typeof tc.input === 'object' ? tc.input as Record<string, unknown> : {},
+          })),
+        };
+      }
+
+      // Regular text message
+      return {
+        role,
+        content: MessageConverter.extractContent(content),
+      };
+    });
   }
 
   /**
@@ -136,25 +183,52 @@ export class MessageConverter {
    * @param messages - Provider messages (without system messages)
    * @returns Anthropic-compatible messages
    */
-  static toAnthropicFormat(messages: ProviderMessage[]): Array<{ role: string; content: string }> {
-    const result: Array<{ role: string; content: string }> = [];
+  static toAnthropicFormat(messages: ProviderMessage[]): Array<{
+    role: string;
+    content: Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
+  }> {
+    const result: Array<{
+      role: string;
+      content: Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
+    }> = [];
 
     for (const msg of messages) {
-      let content = '';
       if (typeof msg.content === 'string') {
-        content = msg.content;
+        // Simple text message
+        result.push({
+          role: msg.role,
+          content: [{ type: 'text', text: msg.content }],
+        });
       } else if (Array.isArray(msg.content)) {
-        // Concatenate text parts
-        content = msg.content
-          .filter((part): part is TextPart => part.type === 'text')
-          .map(part => part.text)
-          .join('\n');
-      }
+        // Complex content with tool calls or results
+        const content: any[] = [];
 
-      result.push({
-        role: msg.role,
-        content,
-      });
+        for (const part of msg.content) {
+          if (part.type === 'text') {
+            content.push({ type: 'text', text: part.text });
+          } else if (part.type === 'tool_call') {
+            content.push({
+              type: 'tool_use',
+              id: part.id,
+              name: part.name,
+              input: part.arguments,
+            });
+          } else if (part.type === 'tool_result') {
+            content.push({
+              type: 'tool_result',
+              tool_use_id: part.id,
+              content: typeof part.content === 'string'
+                ? part.content
+                : part.content.map(p => p.text).join(''),
+            });
+          }
+        }
+
+        result.push({
+          role: msg.role,
+          content,
+        });
+      }
     }
 
     return result;

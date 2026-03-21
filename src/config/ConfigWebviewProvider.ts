@@ -9,6 +9,7 @@ import * as path from 'path';
 import type { APIStyle } from '../types/index.js';
 import { NoticeHelper } from '../utils/NoticeHelper.js';
 import { ConfigManager } from './ConfigManager.js';
+import { buildApiUrl } from '../utils/UrlHelper.js';
 
 /**
  * Webview message types
@@ -37,6 +38,7 @@ export interface TestMessage extends WebviewMessage {
     type: 'test';
     baseUrl: string;
     token: string;
+    apiStyle: APIStyle;
 }
 
 /**
@@ -83,7 +85,8 @@ function isSaveMessage(msg: WebviewMessage): msg is SaveMessage {
 function isTestMessage(msg: WebviewMessage): msg is TestMessage {
     return msg.type === 'test' &&
         typeof msg.baseUrl === 'string' &&
-        typeof msg.token === 'string';
+        typeof msg.token === 'string' &&
+        (msg.apiStyle === 'anthropic' || msg.apiStyle === 'openai');
 }
 
 /**
@@ -331,9 +334,10 @@ export class ConfigWebviewProvider {
     /**
      * Handle test connection
      */
-    private async handleTest(message: { baseUrl: string; token: string }): Promise<void> {
+    private async handleTest(message: { baseUrl: string; token: string; apiStyle: APIStyle }): Promise<void> {
         try {
             const baseUrl = message.baseUrl.trim();
+            const apiStyle = message.apiStyle || 'openai';
 
             // Validate URL format
             if (!baseUrl || baseUrl.length === 0) {
@@ -351,27 +355,21 @@ export class ConfigWebviewProvider {
                 throw new Error('URL must use http or https protocol');
             }
 
-            // Temporarily save config for testing
-            await this.config.setProviderConfig('default', {
-                baseUrl,
-                token: message.token.trim(),
-                apiStyle: 'openai',
-            });
+            // Test by making a request to the models endpoint
+            const modelsUrl = buildApiUrl(baseUrl, 'models');
 
-            // Try to fetch models
-            const config = await this.config.getProviderConfig('default');
-            if (!config) {
-                throw new Error('Configuration not found');
+            // Build headers based on API style
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (message.token) {
+                if (apiStyle === 'anthropic') {
+                    headers['x-api-key'] = message.token.trim();
+                    headers['anthropic-version'] = '2023-06-01';
+                } else {
+                    headers['Authorization'] = `Bearer ${message.token.trim()}`;
+                }
             }
 
-            // Test by making a request to the models endpoint
-            const modelsUrl = config.baseUrl.endsWith('/')
-                ? `${config.baseUrl}models`
-                : `${config.baseUrl}/models`;
-
-            const response = await fetch(modelsUrl, {
-                headers: config.token ? { 'Authorization': `Bearer ${config.token}` } : {}
-            });
+            const response = await fetch(modelsUrl, { headers });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

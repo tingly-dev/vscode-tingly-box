@@ -158,3 +158,9 @@ export interface ConfigChangeEvent {
   providerId: string;
   action: 'set' | 'remove';
 }
+
+/**
+ * Response part type for streaming callbacks
+ * Union of parts that can be streamed back from AI
+ */
+export type ResponsePart = TextPart | ToolCallPart;

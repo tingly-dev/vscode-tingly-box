@@ -3,7 +3,7 @@
  * All AI provider adapters must extend this class
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions } from '../types/index.js';
+import type { ModelInfo, ProviderMessage, ChatOptions, ResponsePart } from '../types/index.js';
 
 /**
  * Abstract base class for AI provider adapters
@@ -31,14 +31,14 @@ export abstract class BaseProviderAdapter {
    * @param model - Model identifier to use
    * @param messages - Array of chat messages
    * @param options - Chat options (temperature, max tokens, etc.)
-   * @param onChunk - Callback for each streaming chunk
+   * @param onPart - Callback for each streaming part (text or tool calls)
    * @param signal - AbortSignal for cancellation
    */
   abstract chat(
     model: string,
     messages: ProviderMessage[],
     options: ChatOptions,
-    onChunk: (chunk: string) => void,
+    onPart: (part: ResponsePart) => void,
     signal: AbortSignal
   ): Promise<void>;
 
@@ -65,21 +65,33 @@ export abstract class BaseProviderAdapter {
 
   /**
    * Format request for this provider's API
+   * Note: This method is optional and primarily for providers that manually format requests.
+   * AI SDK-based providers do not need to implement this method.
    * @param model - Model identifier
    * @param messages - Chat messages
    * @param options - Chat options
    * @returns Formatted request body
    */
-  protected abstract formatRequest(
-    model: string,
-    messages: ProviderMessage[],
-    options: ChatOptions
-  ): Record<string, unknown>;
+  protected formatRequest(
+    _model: string,
+    _messages: ProviderMessage[],
+    _options: ChatOptions
+  ): Record<string, unknown> {
+    // Default implementation returns empty object
+    // AI SDK handles request formatting internally
+    return {};
+  }
 
   /**
    * Parse streaming chunk from provider response
+   * Note: This method is optional and primarily for providers that manually parse SSE streams.
+   * AI SDK-based providers do not need to implement this method.
    * @param chunk - Raw chunk data from API
    * @returns Text content or null if not a content chunk
    */
-  protected abstract parseChunk(chunk: string): string | null;
+  protected parseChunk(_chunk: string): string | null {
+    // Default implementation returns null
+    // AI SDK handles streaming internally
+    return null;
+  }
 }
