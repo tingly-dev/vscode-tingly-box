@@ -2,7 +2,7 @@
   "name": "vscode-tingly-box",
   "displayName": "Tingly Box For VS Code",
   "description": "Custom Your AI Model Provider to VSCode Github Copilot Chat - supports OpenAI, Anthropic, and any other AI model providers",
-  "version": "0.260320.0",
+  "version": "0.260321.0",
   "publisher": "tingly-dev",
   "license": "MPL-2.0",
   "engines": {
