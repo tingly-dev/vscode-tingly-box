@@ -53,7 +53,12 @@
       },
       {
         "command": "tinglybox.openWebUI",
-        "title": "Open Web UI",
+        "title": "Open Web UI (System Browser)",
+        "category": "Tingly Box"
+      },
+      {
+        "command": "tinglybox.openWebUIInBrowser",
+        "title": "Open Web UI (Integrated Browser)",
         "category": "Tingly Box"
       },
       {

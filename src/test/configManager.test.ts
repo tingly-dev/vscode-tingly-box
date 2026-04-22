@@ -31,6 +31,7 @@ describe('ConfigManager', () => {
         baseUrl: 'https://api.example.com/v1',
         token: 'test-token-12345',
         apiStyle: 'openai',
+        tinglyBoxUrl: '',
       };
 
       await configManager.setProviderConfig('default', config);
@@ -119,6 +120,7 @@ describe('ConfigManager', () => {
         baseUrl: 'https://api.example.com/v1',
         token: 'test-token',
         apiStyle: 'anthropic',
+        tinglyBoxUrl: '',
       };
 
       await configManager.setProviderConfig('default', config);

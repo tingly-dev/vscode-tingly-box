@@ -48,13 +48,15 @@ export class ConfigManager extends EventEmitter {
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
     const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
+    const tinglyBoxUrlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.tinglyBoxUrl`;
 
     this.log(`Reading config for provider: ${providerId}`);
 
-    const [token, baseUrl, apiStyle] = await Promise.all([
+    const [token, baseUrl, apiStyle, tinglyBoxUrl] = await Promise.all([
       this.secrets.get(tokenKey),
       this.secrets.get(urlKey),
       this.secrets.get(styleKey),
+      this.secrets.get(tinglyBoxUrlKey),
     ]);
 
     if (!baseUrl) {
@@ -67,9 +69,9 @@ export class ConfigManager extends EventEmitter {
 
     // Log base URL (token may be empty)
     const maskedToken = token ? `****${token.slice(-4)}` : '(empty)';
-    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, apiStyle=${style}, token=${maskedToken}`);
+    this.log(`Config for ${providerId}: baseUrl=${baseUrl}, apiStyle=${style}, token=${maskedToken}, tinglyBoxUrl=${tinglyBoxUrl || 'default'}`);
 
-    return { token: token || '', baseUrl, apiStyle: style };
+    return { token: token || '', baseUrl, apiStyle: style, tinglyBoxUrl: tinglyBoxUrl || '' };
   }
 
   /**
@@ -116,10 +118,10 @@ export class ConfigManager extends EventEmitter {
    * @throws Error if validation fails
    */
   async setProviderConfig(providerId: string, config: ProviderConfig): Promise<void> {
-    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, apiStyle=${config.apiStyle}, token=${config.token ? '****' + config.token.slice(-4) : '(empty)'}`);
+    this.log(`Storing config for ${providerId}: baseUrl=${config.baseUrl}, apiStyle=${config.apiStyle}, token=${config.token ? '****' + config.token.slice(-4) : '(empty)'}, tinglyBoxUrl=${config.tinglyBoxUrl || 'default'}`);
 
-    // Validate URL format
-    if (!this.isValidUrl(config.baseUrl)) {
+    // Validate URL format (allow empty baseUrl when only tinglyBoxUrl is being set)
+    if (config.baseUrl && !this.isValidUrl(config.baseUrl)) {
       throw new Error('Invalid base URL format');
     }
 
@@ -131,11 +133,13 @@ export class ConfigManager extends EventEmitter {
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
     const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
+    const tinglyBoxUrlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.tinglyBoxUrl`;
 
     await Promise.all([
       this.secrets.store(tokenKey, config.token || ''),
       this.secrets.store(urlKey, config.baseUrl),
       this.secrets.store(styleKey, config.apiStyle),
+      this.secrets.store(tinglyBoxUrlKey, config.tinglyBoxUrl || ''),
     ]);
 
     this.log(`Config stored successfully for ${providerId}`);
@@ -154,11 +158,13 @@ export class ConfigManager extends EventEmitter {
     const tokenKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.token`;
     const urlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.baseUrl`;
     const styleKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.apiStyle`;
+    const tinglyBoxUrlKey = `${ConfigManager.STORAGE_PREFIX}${providerId}.tinglyBoxUrl`;
 
     await Promise.all([
       this.secrets.delete(tokenKey),
       this.secrets.delete(urlKey),
       this.secrets.delete(styleKey),
+      this.secrets.delete(tinglyBoxUrlKey),
     ]);
 
     this.log(`Config removed for ${providerId}`);
@@ -229,6 +235,7 @@ export class ConfigManager extends EventEmitter {
       `${ConfigManager.STORAGE_PREFIX}default.token`,
       `${ConfigManager.STORAGE_PREFIX}default.baseUrl`,
       `${ConfigManager.STORAGE_PREFIX}default.apiStyle`,
+      `${ConfigManager.STORAGE_PREFIX}default.tinglyBoxUrl`,
     ];
 
     // Delete all known keys

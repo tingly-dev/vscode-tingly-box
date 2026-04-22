@@ -19,6 +19,7 @@ export interface WebviewMessage {
     baseUrl?: string;
     token?: string;
     apiStyle?: APIStyle;
+    tinglyBoxUrl?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export interface SaveMessage extends WebviewMessage {
     baseUrl: string;
     token: string;
     apiStyle: APIStyle;
+    tinglyBoxUrl?: string;
 }
 
 /**
@@ -272,7 +274,7 @@ export class ConfigWebviewProvider {
 
             case 'startServer':
                 if (isStartServerMessage(msg)) {
-                    await this.handleStartServer();
+                    await this.handleStartServer(msg);
                 } else {
                     this.sendMessage('error', { message: 'Invalid startServer message format' });
                 }
@@ -311,12 +313,13 @@ export class ConfigWebviewProvider {
     /**
      * Handle save configuration
      */
-    private async handleSave(message: { baseUrl: string; token: string; apiStyle: APIStyle }): Promise<void> {
+    private async handleSave(message: SaveMessage): Promise<void> {
         try {
             await this.config.setProviderConfig('default', {
                 baseUrl: message.baseUrl.trim(),
                 token: message.token.trim(),
                 apiStyle: message.apiStyle,
+                tinglyBoxUrl: message.tinglyBoxUrl?.trim() || '',
             });
 
             this.sendMessage('saved');
@@ -430,9 +433,8 @@ export class ConfigWebviewProvider {
     /**
      * Handle start server - trigger the startServer command
      */
-    private async handleStartServer(): Promise<void> {
+    private async handleStartServer(_message: StartServerMessage): Promise<void> {
         try {
-            // Execute the startServer command
             await vscode.commands.executeCommand('tinglybox.startServer');
         } catch (error) {
             this.sendMessage('error', {
@@ -456,12 +458,35 @@ export class ConfigWebviewProvider {
     }
 
     /**
-     * Handle open web UI - trigger the openWebUI command
+     * Handle open web UI - open tinglyBoxUrl directly in integrated browser
      */
     private async handleOpenWebUI(): Promise<void> {
         try {
-            // Execute the openWebUI command
-            await vscode.commands.executeCommand('tinglybox.openWebUI');
+            const providerConfig = await this.config.getProviderConfig('default');
+            const tinglyBoxUrl = providerConfig?.tinglyBoxUrl?.trim() || 'http://localhost:12580';
+
+            this.outputChannel.appendLine(`[Webview] Opening Tingly Box Web UI: ${tinglyBoxUrl}`);
+
+            // Try integrated browser first, fall back to external browser
+            const commandsToTry = [
+                'simpleBrowser.show',
+                'browser.openIntegratedBrowser',
+            ];
+
+            let opened = false;
+            for (const cmd of commandsToTry) {
+                try {
+                    await vscode.commands.executeCommand(cmd, tinglyBoxUrl);
+                    opened = true;
+                    break;
+                } catch {
+                    // command not available, try next
+                }
+            }
+
+            if (!opened) {
+                await vscode.env.openExternal(vscode.Uri.parse(tinglyBoxUrl));
+            }
         } catch (error) {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)
@@ -489,6 +514,13 @@ export class ConfigWebviewProvider {
     private async sendCurrentConfig(): Promise<void> {
         const config = await this.config.getProviderConfig('default');
         this.sendMessage('config', { config });
+    }
+
+    /**
+     * Push an updated tinglyBoxUrl to the webview (e.g. after server auto-detection)
+     */
+    updateTinglyBoxUrl(url: string): void {
+        this.sendMessage('updateTinglyBoxUrl', { url });
     }
 
     /**

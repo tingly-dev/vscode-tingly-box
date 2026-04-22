@@ -12,6 +12,60 @@ import { TinglyBoxProvider } from './provider/TinglyBoxProvider.js';
 import { UnifiedAdapter } from './provider/adapters/UnifiedAdapter.js';
 import { ErrorHandler } from './utils/ErrorHandler.js';
 import { NoticeHelper } from './utils/NoticeHelper.js';
+import { extractFromServerOutput, maskToken } from './utils/UrlHelper.js';
+
+/**
+ * Handle extracted Tingly Box web UI URL from server startup output.
+ * Stores the web UI URL in config for "Open Web UI" commands.
+ * Note: The web token is for UI access only, NOT for API authentication.
+ */
+async function handleServerUrlExtracted(
+    urlInfo: { fullUrl: string; baseUrl: string; webToken: string; port: number },
+    config: ConfigManager,
+    output: vscode.OutputChannel,
+    webviewProvider?: ConfigWebviewProvider
+): Promise<void> {
+    try {
+        output.appendLine(`[Tingly Box] Web UI URL detected: ${maskToken(urlInfo.fullUrl)}`);
+        output.appendLine(`[Tingly Box] Server: ${urlInfo.baseUrl}`);
+        output.appendLine(`[Tingly Box] Port: ${urlInfo.port}`);
+
+        const existingConfig = await config.getProviderConfig('default');
+
+        if (existingConfig) {
+            // Update only the web UI URL, keep API config intact
+            await config.setProviderConfig('default', {
+                ...existingConfig,
+                tinglyBoxUrl: urlInfo.fullUrl,
+            });
+            output.appendLine('[Tingly Box] Updated web UI URL');
+        } else {
+            // First time: store web UI URL only
+            await config.setProviderConfig('default', {
+                baseUrl: '',
+                token: '',
+                apiStyle: 'openai',
+                tinglyBoxUrl: urlInfo.fullUrl,
+            });
+            output.appendLine('[Tingly Box] Stored web UI URL. Configure API access in the web UI.');
+        }
+
+        const action = await vscode.window.showInformationMessage(
+            'Tingly Box server started! Open the web UI to configure API access.',
+            'Open Web UI',
+            'Dismiss'
+        );
+
+        if (action === 'Open Web UI') {
+            vscode.commands.executeCommand('tinglybox.openWebUIInBrowser');
+        }
+
+        // Push URL update to webview if open
+        webviewProvider?.updateTinglyBoxUrl(urlInfo.fullUrl);
+    } catch (error) {
+        output.appendLine(`[Tingly Box] Error storing web UI URL: ${error}`);
+    }
+}
 
 /**
  * Extension activation function
@@ -167,22 +221,40 @@ export function activate(context: vscode.ExtensionContext) {
         // Register start server command
         const startServerCommand = vscode.commands.registerCommand(
             'tinglybox.startServer',
-            async () => {
+            async (port?: string) => {
                 try {
-                    output.appendLine('[Tingly Box] Starting tingly-box server...');
+                    const serverPort = port || '12580';
+                    output.appendLine(`[Tingly Box] Starting tingly-box server on port ${serverPort}...`);
                     output.show(true);
 
-                    // Start the server process using npx
-                    serverProcess = spawn('npx', ['tingly-box@latest'], {
+                    // Start the server process using npx with custom port
+                    const args = ['tingly-box@latest'];
+                    if (port && port !== '12580') {
+                        args.push('--port', serverPort);
+                    }
+
+                    serverProcess = spawn('npx', args, {
                         stdio: 'pipe',
                         shell: true
                     });
+
+                    // Track if we've already extracted URL from this server session
+                    let urlExtracted = false;
 
                     // Handle server output
                     if (serverProcess.stdout) {
                         serverProcess.stdout.on('data', (data) => {
                             const message = data.toString();
                             output.append(message);
+
+                            // Try to extract web UI URL from server output
+                            if (!urlExtracted) {
+                                const urlInfo = extractFromServerOutput(message);
+                                if (urlInfo) {
+                                    urlExtracted = true;
+                                    handleServerUrlExtracted(urlInfo, config, output, webviewProvider);
+                                }
+                            }
                         });
                     }
 
@@ -210,7 +282,7 @@ export function activate(context: vscode.ExtensionContext) {
                         serverProcess = null;
                     });
 
-                    vscode.window.showInformationMessage('Tingly Box server started successfully!');
+                    vscode.window.showInformationMessage(`Tingly Box server starting on port ${serverPort}...`);
                 } catch (error) {
                     output.appendLine(`[Tingly Box] Failed to start server: ${error}`);
                     vscode.window.showErrorMessage(
@@ -258,12 +330,12 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(stopServerCommand);
         output.appendLine('[Tingly Box] Registered stop server command');
 
-        // Register open web UI command
+        // Register open web UI command (opens in system browser)
         const openWebUICommand = vscode.commands.registerCommand(
             'tinglybox.openWebUI',
             async () => {
                 try {
-                    output.appendLine('[Tingly Box] Opening Tingly Box web UI...');
+                    output.appendLine('[Tingly Box] Opening Tingly Box web UI in system browser...');
                     output.show(true);
 
                     // Execute npx tingly-box open
@@ -294,6 +366,51 @@ export function activate(context: vscode.ExtensionContext) {
         );
         context.subscriptions.push(openWebUICommand);
         output.appendLine('[Tingly Box] Registered open web UI command');
+
+        // Register open web UI in integrated browser command
+        const openWebUIInBrowserCommand = vscode.commands.registerCommand(
+            'tinglybox.openWebUIInBrowser',
+            async () => {
+                try {
+                    output.appendLine('[Tingly Box] Opening Tingly Box web UI in integrated browser...');
+
+                    const providerConfig = await config.getProviderConfig('default');
+                    const webUIUrl = providerConfig?.tinglyBoxUrl?.trim() || 'http://localhost:12580';
+
+                    output.appendLine(`[Tingly Box] Opening URL: ${webUIUrl}`);
+
+                    const commandsToTry = [
+                        'simpleBrowser.show',
+                        'browser.openIntegratedBrowser',
+                    ];
+
+                    let success = false;
+                    for (const cmd of commandsToTry) {
+                        try {
+                            await vscode.commands.executeCommand(cmd, webUIUrl);
+                            success = true;
+                            output.appendLine(`[Tingly Box] Web UI opened using: ${cmd}`);
+                            break;
+                        } catch (cmdError) {
+                            output.appendLine(`[Tingly Box] Command ${cmd} not available, trying next...`);
+                        }
+                    }
+
+                    if (!success) {
+                        // Fall back to external browser
+                        await vscode.env.openExternal(vscode.Uri.parse(webUIUrl));
+                        output.appendLine('[Tingly Box] Opened in external browser');
+                    }
+                } catch (error) {
+                    output.appendLine(`[Tingly Box] Failed to open web UI: ${error}`);
+                    vscode.window.showErrorMessage(
+                        `Failed to open Tingly Box web UI: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                }
+            }
+        );
+        context.subscriptions.push(openWebUIInBrowserCommand);
+        output.appendLine('[Tingly Box] Registered open web UI in integrated browser command');
 
         // Auto-fetch models on activation ONLY if already configured
         (async () => {

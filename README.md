@@ -31,6 +31,7 @@ This extension is designed to integrate seamlessly with [Tingly Box](https://git
 - **One-Click Server Control** — Start and stop Tingly Box server directly from the extension
 - **Automatic Setup** — Built-in server management for hassle-free configuration
 - **Unified AI Experience** — Connect to Tingly Box for orchestrated AI capabilities
+- **Integrated Browser** — Open Tingly Box web interface directly in VS Code (no external browser needed)
 
 ### Standalone Capabilities
 Works perfectly on its own too:
@@ -60,16 +61,17 @@ Recommand to use with Tingly Box.
 
 ## Commands
 
-| Command                              | Description                             |
-| ------------------------------------ | --------------------------------------- |
-| `Tingly Box: Manage Settings`        | Open configuration webview              |
-| `Tingly Box: Start Server`           | Start Tingly Box server                 |
-| `Tingly Box: Stop Server`            | Stop Tingly Box server                  |
-| `Tingly Box: Open Web UI`            | Open Tingly Box web control panel       |
-| `Tingly Box: Show Status`            | View current connection status          |
-| `Tingly Box: Fetch Models`           | Refresh available models from API       |
-| `Tingly Box: Manage Language Models` | Open VSCode's language model management |
-| `Tingly Box: Reset Configuration`    | Clear all saved configuration           |
+| Command                                         | Description                                    |
+| ----------------------------------------------- | ---------------------------------------------- |
+| `Tingly Box: Manage Settings`                   | Open configuration webview                     |
+| `Tingly Box: Start Server`                      | Start Tingly Box server                        |
+| `Tingly Box: Stop Server`                       | Stop Tingly Box server                         |
+| `Tingly Box: Open Web UI (System Browser)`      | Open Tingly Box web UI in system browser       |
+| `Tingly Box: Open Web UI (Integrated Browser)`  | Open Tingly Box web UI in VS Code integrated browser |
+| `Tingly Box: Show Status`                       | View current connection status                 |
+| `Tingly Box: Fetch Models`                      | Refresh available models from API              |
+| `Tingly Box: Manage Language Models`            | Open VSCode's language model management        |
+| `Tingly Box: Reset Configuration`               | Clear all saved configuration                  |
 
 ## Status Bar
 

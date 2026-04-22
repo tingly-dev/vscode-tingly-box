@@ -17,6 +17,8 @@ export interface ProviderConfig {
   baseUrl: string;
   /** API style to use for message formatting */
   apiStyle: APIStyle;
+  /** Tingly Box Web UI URL (optional) */
+  tinglyBoxUrl?: string;
 }
 
 /**

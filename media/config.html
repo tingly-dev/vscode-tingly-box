@@ -298,8 +298,19 @@
             <div class="section">
                 <h2>🖥️ Tingly Box - Your Intelligence, Orchestrated</h2>
                 <p style="color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 12px;">
-                    Start the Tingly Box service, then configure your connection below.
+                    Configure Tingly Box settings and control the service.
                 </p>
+                <div class="form-group">
+                    <label for="tinglyBoxUrl">Tingly Box Web UI URL</label>
+                    <input
+                        type="text"
+                        id="tinglyBoxUrl"
+                        placeholder="http://localhost:12580/?token=tb-user-xxx (auto-detected on server start)"
+                    />
+                    <p style="color: var(--vscode-descriptionForeground); font-size: 0.85em; margin-top: 4px;">
+                        Full URL to your Tingly Box web interface. Auto-detected when server starts. You can also paste it here manually.
+                    </p>
+                </div>
                 <div class="button-group">
                     <button
                         type="button"
@@ -457,6 +468,7 @@
         const form = document.getElementById('configForm');
         const baseUrlInput = document.getElementById('baseUrl');
         const tokenInput = document.getElementById('token');
+        const tinglyBoxUrlInput = document.getElementById('tinglyBoxUrl');
         const saveBtn = document.getElementById('saveBtn');
         const testBtn = document.getElementById('testBtn');
         const fetchModelsBtn = document.getElementById('fetchModelsBtn');
@@ -509,7 +521,8 @@
             sendMessage('save', {
                 baseUrl: baseUrlInput.value,
                 token: tokenInput.value,
-                apiStyle: apiStyle
+                apiStyle: apiStyle,
+                tinglyBoxUrl: tinglyBoxUrlInput.value
             });
         });
 
@@ -597,11 +610,13 @@
                     if (message.config) {
                         baseUrlInput.value = message.config.baseUrl || '';
                         tokenInput.value = message.config.token || '';
+                        tinglyBoxUrlInput.value = message.config.tinglyBoxUrl || '';
                         const radio = document.querySelector(`input[name="apiStyle"][value="${message.config.apiStyle}"]`);
                         if (radio) radio.checked = true;
                     } else {
                         // Set default values for new users
                         baseUrlInput.value = 'http://localhost:12580/tingly/openai';
+                        tinglyBoxUrlInput.value = 'http://localhost:12580';
                     }
                     break;
 
@@ -644,6 +659,13 @@
                 case 'fetchModelsEnd':
                     fetchModelsBtn.disabled = false;
                     fetchModelsBtn.textContent = '🔄 Update Model List';
+                    break;
+
+                case 'updateTinglyBoxUrl':
+                    if (message.url && tinglyBoxUrlInput) {
+                        tinglyBoxUrlInput.value = message.url;
+                        showStatus('🔗 Tingly Box server URL auto-detected!', 'success');
+                    }
                     break;
             }
         });
