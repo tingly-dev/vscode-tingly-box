@@ -20,26 +20,62 @@
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
             background: var(--vscode-editor-background);
-            padding: 20px;
+            padding: 0 20px 20px;
             line-height: 1.6;
+        }
+
+        /* Sticky status toast at top */
+        .toast-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 10px 14px;
+            border-radius: 0 0 4px 4px;
+            font-size: 0.9em;
+            transition: opacity 0.3s;
+        }
+
+        .toast-bar.hidden {
+            display: none;
+        }
+
+        .toast-bar.success {
+            background: var(--vscode-diffEditor-insertedTextBackground);
+            color: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #4caf50));
+            border-bottom: 1px solid var(--vscode-testing-iconPassed, #4caf50);
+        }
+
+        .toast-bar.error {
+            background: var(--vscode-inputValidation-errorBackground);
+            color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
+            border-bottom: 1px solid var(--vscode-inputValidation-errorBorder);
+        }
+
+        .toast-bar.info {
+            background: var(--vscode-inputValidation-infoBackground);
+            color: var(--vscode-inputValidation-infoForeground, var(--vscode-foreground));
+            border-bottom: 1px solid var(--vscode-inputValidation-infoBorder);
         }
 
         .container {
             max-width: 800px;
             margin: 0 auto;
+            padding-top: 20px;
         }
 
         h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: 20px;
+            margin-bottom: 16px;
             color: var(--vscode-foreground);
         }
 
         h2 {
-            font-size: 18px;
-            margin-top: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
             margin-bottom: 12px;
-            color: var(--vscode-foreground);
+            color: var(--vscode-descriptionForeground);
         }
 
         .section {
@@ -47,25 +83,36 @@
             border: 1px solid var(--vscode-panel-border);
             border-radius: 4px;
             padding: 16px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
         }
 
         label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             font-weight: 500;
+            font-size: 0.9em;
             color: var(--vscode-foreground);
+        }
+
+        .field-hint {
+            font-size: 0.82em;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
         }
 
         input[type="text"],
         input[type="password"],
         select {
             width: 100%;
-            padding: 8px 12px;
+            padding: 6px 10px;
             background: var(--vscode-input-background);
             border: 1px solid var(--vscode-input-border);
             border-radius: 2px;
@@ -76,22 +123,41 @@
         input:focus,
         select:focus {
             outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: -1px;
         }
 
-        .button-group {
+        input[readonly] {
+            opacity: 0.75;
+            cursor: default;
+        }
+
+        /* Inline input+button row */
+        .input-row {
             display: flex;
-            gap: 12px;
-            margin-top: 20px;
+            gap: 6px;
+            align-items: stretch;
         }
 
+        .input-row input {
+            flex: 1;
+        }
+
+        .input-row button {
+            flex-shrink: 0;
+            padding: 6px 10px;
+            font-size: 0.85em;
+        }
+
+        /* Buttons */
         button {
-            padding: 8px 16px;
+            padding: 6px 14px;
             background: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
             border: none;
             border-radius: 2px;
             cursor: pointer;
             font-size: var(--vscode-font-size);
+            white-space: nowrap;
         }
 
         button:hover {
@@ -107,94 +173,93 @@
             background: var(--vscode-button-secondaryHoverBackground);
         }
 
+        button.danger {
+            background: transparent;
+            color: var(--vscode-errorForeground);
+            border: 1px solid var(--vscode-errorForeground);
+        }
+
+        button.danger:hover {
+            background: var(--vscode-inputValidation-errorBackground);
+        }
+
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.45;
             cursor: not-allowed;
         }
 
-        .status {
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-        }
-
-        .status.success {
-            background: var(--vscode-diffEditor-insertedTextBackground);
-            color: var(--vscode-testingIconPassedForeground);
-        }
-
-        .status.error {
-            background: var(--vscode-errorBackground);
-            color: var(--vscode-errorForeground);
-        }
-
-        .status.info {
-            background: var(--vscode-infoBackground);
-            color: var(--vscode-infoForeground);
-        }
-
-        .status.hidden {
-            display: none;
-        }
-
-        .radio-group {
+        /* Button row: primary left, secondary middle, danger right */
+        .button-row {
             display: flex;
-            gap: 16px;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 16px;
         }
 
-        .radio-option {
+        .button-row .spacer {
+            flex: 1;
+        }
+
+        /* Server control row */
+        .server-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .radio-option input[type="radio"] {
-            margin: 0;
+        /* Server status badge */
+        .server-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.82em;
+            font-weight: 500;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            transition: background 0.2s, color 0.2s;
         }
 
-        .guide {
-            background: var(--vscode-textBlockQuote-background);
-            border-left: 4px solid var(--vscode-textBlockQuote-border);
-            padding: 12px 16px;
-            margin-bottom: 16px;
+        .server-badge.stopped {
+            background: var(--vscode-statusBarItem-offlineBackground, var(--vscode-badge-background));
+            color: var(--vscode-descriptionForeground);
         }
 
-        .guide h3 {
-            margin-bottom: 8px;
-            color: var(--vscode-foreground);
+        .server-badge.starting,
+        .server-badge.stopping {
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
         }
 
-        .guide ol {
-            margin-left: 20px;
+        .server-badge.running {
+            background: var(--vscode-testing-iconPassed, #388a34);
+            color: #fff;
         }
 
-        .guide li {
-            margin-bottom: 8px;
+        .server-badge .dot {
+            font-size: 10px;
+            line-height: 1;
         }
 
-        .guide code {
-            background: var(--vscode-textCodeBlock-background);
-            padding: 2px 6px;
-            border-radius: 2px;
-            font-family: var(--vscode-editor-font-family);
-        }
-
-        /* Tab Navigation */
+        /* Tabs */
         .tabs {
             display: flex;
             border-bottom: 1px solid var(--vscode-panel-border);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .tab {
-            padding: 10px 20px;
+            padding: 8px 18px;
             cursor: pointer;
             border: none;
             background: transparent;
             color: var(--vscode-foreground);
             font-size: var(--vscode-font-size);
             border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            margin-bottom: -1px;
         }
 
         .tab:hover {
@@ -204,7 +269,7 @@
         .tab.active {
             border-bottom-color: var(--vscode-textLink-foreground);
             color: var(--vscode-textLink-foreground);
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .tab-content {
@@ -215,44 +280,123 @@
             display: block;
         }
 
-        .warning-box {
-            background: var(--vscode-editorWarning-background);
-            border-left: 4px solid var(--vscode-editorWarning-foreground);
-            padding: 12px 16px;
-            margin-bottom: 16px;
+        /* Callout blocks */
+        .callout {
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            background: var(--vscode-textBlockQuote-background);
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            border-radius: 0 3px 3px 0;
         }
 
-        .warning-box h3 {
-            margin-bottom: 8px;
+        .callout h3 {
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .callout ol {
+            margin-left: 18px;
+        }
+
+        .callout li {
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .callout code {
+            background: var(--vscode-textCodeBlock-background);
+            padding: 1px 5px;
+            border-radius: 2px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 0.92em;
+        }
+
+        .warning-callout {
+            border-left-color: var(--vscode-editorWarning-foreground);
+            background: var(--vscode-editorWarning-background, var(--vscode-textBlockQuote-background));
+        }
+
+        .warning-callout h3 {
             color: var(--vscode-editorWarning-foreground);
         }
 
-        .warning-box ul {
-            margin-left: 20px;
+        /* Radio group */
+        .radio-group {
+            display: flex;
+            gap: 20px;
         }
 
-        .warning-box li {
-            margin-bottom: 6px;
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .radio-option input[type="radio"] {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .radio-option label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        /* Status grid in Current Status section */
+        .status-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+            font-size: 0.9em;
+        }
+
+        .status-grid .key {
+            color: var(--vscode-descriptionForeground);
+            font-weight: 500;
+        }
+
+        .status-grid .val {
+            color: var(--vscode-foreground);
+            word-break: break-all;
+        }
+
+        .badge-ok {
+            color: var(--vscode-testing-iconPassed, #4caf50);
+        }
+
+        .badge-warn {
+            color: var(--vscode-editorWarning-foreground);
+        }
+
+        a {
+            color: var(--vscode-textLink-foreground);
+        }
+
+        a:hover {
+            color: var(--vscode-textLink-activeForeground);
         }
     </style>
 </head>
 
 <body>
+    <!-- Sticky toast bar -->
+    <div
+        id="toast"
+        class="toast-bar hidden"
+    ></div>
+
     <div class="container">
         <h1>🎯 Tingly Box Configuration</h1>
-
-        <!-- Status Message -->
-        <div
-            id="status"
-            class="status hidden"
-        ></div>
 
         <!-- Tab Navigation -->
         <div class="tabs">
             <button
                 class="tab active"
                 data-tab="with-tb"
-            >Using with Tingly Box</button>
+            >Using Tingly Box</button>
             <button
                 class="tab"
                 data-tab="custom"
@@ -265,63 +409,39 @@
             class="tab-content active"
         >
             <div class="section">
-                <h2>📖 Setup Guide</h2>
-                <div class="guide">
-                    <h3>Quick Start</h3>
+                <h2>Quick Start</h2>
+                <div class="callout">
+                    <h3>Setup Steps</h3>
                     <ol>
-                        <li>Click "Start" below (or run <code>npx tingly-box@latest</code> in terminal)</li>
-                        <li>Enter your Tingly Box Base URL below (default:
-                            <code>http://localhost:12580/tingly/openai</code>)
-                        </li>
-                        <li>Enter your API Token if required (optional for some setups)</li>
-                        <li>Select your API Style (OpenAI or Anthropic)</li>
-                        <li>Click "Save Configuration" and <strong>⚠️ Reload VSCode window</strong> for changes to take
-                            effect (Developer: Reload
-                            Window)</li>
-                        <li><strong>⚠️ Open "🤖 Language Models" manager</strong> and enable model visibility</li>
+                        <li>Click <strong>Start</strong> below (or run <code>npx tingly-box@latest</code> in terminal)</li>
+                        <li>The Web UI URL is auto-detected — click <strong>Open Web UI</strong> to configure models</li>
+                        <li>Enter your Base URL below (default: <code>http://localhost:12580/tingly/openai</code>)</li>
+                        <li>Enter your API Token if required</li>
+                        <li>Click <strong>Save Configuration</strong> and reload VS Code window</li>
+                        <li>Open <strong>Language Models</strong> manager and enable model visibility</li>
                     </ol>
                 </div>
-                <div>
-                    <p>
-                        <strong>Need help?</strong> Visit <a
-                            href="https://github.com/tingly-dev/vscode-tingly-box"
-                            target="_blank"
-                        >vscode-tingly-box</a> or <a
-                            href="https://github.com/tingly-dev/tingly-box"
-                            target="_blank"
-                        >tingly-box</a>
-                    </p>
-                </div>
+                <p style="font-size:0.85em; color:var(--vscode-descriptionForeground)">
+                    Need help? Visit
+                    <a href="https://github.com/tingly-dev/vscode-tingly-box" target="_blank">vscode-tingly-box</a>
+                    or <a href="https://github.com/tingly-dev/tingly-box" target="_blank">tingly-box</a>.
+                </p>
             </div>
 
             <!-- Server Control Section -->
             <div class="section">
-                <h2>🖥️ Tingly Box - Your Intelligence, Orchestrated</h2>
-                <p style="color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 12px;">
-                    Configure Tingly Box settings and control the service.
-                </p>
-                <div class="form-group">
-                    <label for="tinglyBoxUrl">Tingly Box Web UI URL</label>
-                    <input
-                        type="text"
-                        id="tinglyBoxUrl"
-                        placeholder="http://localhost:12580/?token=tb-user-xxx (auto-detected on server start)"
-                    />
-                    <p style="color: var(--vscode-descriptionForeground); font-size: 0.85em; margin-top: 4px;">
-                        Full URL to your Tingly Box web interface. Auto-detected when server starts. You can also paste it here manually.
-                    </p>
-                </div>
-                <div class="button-group">
+                <h2>Server</h2>
+                <div class="server-row">
                     <button
                         type="button"
                         id="startServerBtn"
                         class="secondary"
-                    >🚀 Start</button>
+                    >▶ Start</button>
                     <button
                         type="button"
                         id="stopServerBtn"
                         class="secondary"
-                    >🛑 Stop</button>
+                    >■ Stop</button>
                     <button
                         type="button"
                         id="openWebUIBtn"
@@ -332,6 +452,39 @@
                         id="openManagerBtn"
                         class="secondary"
                     >🤖 Language Models</button>
+                    <span
+                        id="serverBadge"
+                        class="server-badge stopped"
+                    ><span class="dot">○</span> Stopped</span>
+                </div>
+
+                <!-- Tingly Box Web UI URL -->
+                <div
+                    class="form-group"
+                    style="margin-top:14px"
+                >
+                    <label for="tinglyBoxUrl">Web UI URL</label>
+                    <div class="input-row">
+                        <input
+                            type="text"
+                            id="tinglyBoxUrl"
+                            placeholder="Auto-detected on server start"
+                            readonly
+                        />
+                        <button
+                            type="button"
+                            id="copyUrlBtn"
+                            class="secondary"
+                            title="Copy URL to clipboard"
+                        >📋</button>
+                        <button
+                            type="button"
+                            id="editUrlBtn"
+                            class="secondary"
+                            title="Edit URL manually"
+                        >✏️</button>
+                    </div>
+                    <p class="field-hint">Auto-detected when server starts. Click ✏️ to paste manually.</p>
                 </div>
             </div>
         </div>
@@ -341,44 +494,40 @@
             id="tab-custom"
             class="tab-content"
         >
-            <div class="warning-box">
+            <div class="callout warning-callout">
                 <h3>⚠️ Recommendation: Use Tingly Box</h3>
-                <p>While you can use custom providers, we strongly recommend using <a
-                        href="https://github.com/tingly-dev/tingly-box"
-                        target="_blank"
-                    >Tingly Box</a> for the best experience.</p>
-                <ul>
-                    <li><strong>Provider Compatibility:</strong> Some providers may not follow standard API formats</li>
-                    <li><strong>Model List API:</strong> Not all providers expose a models endpoint</li>
-                    <li><strong>Frequent Switching:</strong> You may need to switch providers often</li>
-                    <li><strong>Authentication:</strong> Different auth methods can cause issues</li>
-                    <li><strong>Rate Limiting:</strong> Provider-specific limits may affect usage</li>
+                <p style="font-size:0.9em; margin-bottom:6px">
+                    While custom providers are supported, <a href="https://github.com/tingly-dev/tingly-box" target="_blank">Tingly Box</a>
+                    handles provider compatibility, model discovery, auth, and rate limiting automatically.
+                </p>
+                <ul style="margin-left:16px; font-size:0.9em">
+                    <li>Provider-specific API format differences</li>
+                    <li>Model list endpoints not always available</li>
+                    <li>Authentication method variations</li>
                 </ul>
-                <p><strong>Tingly Box</strong> handles all these complexities for you with a unified interface.</p>
             </div>
 
             <div class="section">
-                <h2>🔧 Custom Provider Configuration</h2>
-                <div class="guide">
-                    <h3>Setup Instructions</h3>
+                <h2>Custom Provider Setup</h2>
+                <div class="callout">
+                    <h3>Steps</h3>
                     <ol>
-                        <li>Enter your provider's Base URL below</li>
+                        <li>Enter your provider's Base URL</li>
                         <li>Enter your API Token if required</li>
-                        <li>Select the appropriate API Style for your provider</li>
-                        <li>Click "Test Connection" to verify</li>
-                        <li>Click "Save Configuration" and <strong>⚠️ Reload VSCode window</strong> to take effect</li>
-                        <li><strong>⚠️ Open "🤖 Language Models" manager</strong> and enable model visibility</li>
+                        <li>Select the API style that matches your provider</li>
+                        <li>Click <strong>Test Connection</strong> to verify</li>
+                        <li>Click <strong>Save Configuration</strong> and reload VS Code window</li>
                     </ol>
                 </div>
             </div>
         </div>
 
-        <!-- Configuration Form (shared) -->
+        <!-- Configuration Form (shared across tabs) -->
         <div class="section">
-            <h2>⚙️ Configuration</h2>
+            <h2>API Configuration</h2>
             <form id="configForm">
                 <div class="form-group">
-                    <label for="baseUrl">Base URL *</label>
+                    <label for="baseUrl">Base URL <span style="color:var(--vscode-errorForeground)">*</span></label>
                     <input
                         type="text"
                         id="baseUrl"
@@ -388,19 +537,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="token">API Token (Optional)</label>
+                    <label for="token">API Token <span style="color:var(--vscode-descriptionForeground); font-weight:normal">(optional)</span></label>
                     <input
                         type="password"
                         id="token"
-                        placeholder="sk-... or Bearer token (leave empty if not required)"
+                        placeholder="sk-... or Bearer token"
                     />
                 </div>
 
                 <div class="form-group">
-                    <label>API Style *</label>
-                    <p style="color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 8px;">
-                        Note: If using Tingly Box, either style works fine.
-                    </p>
+                    <label>API Style <span style="color:var(--vscode-errorForeground)">*</span></label>
+                    <p class="field-hint" style="margin-bottom:6px">If using Tingly Box, either style works.</p>
                     <div class="radio-group">
                         <div class="radio-option">
                             <input
@@ -410,7 +557,7 @@
                                 value="openai"
                                 checked
                             >
-                            <label for="styleOpenAI">OpenAI Style</label>
+                            <label for="styleOpenAI">OpenAI</label>
                         </div>
                         <div class="radio-option">
                             <input
@@ -419,42 +566,25 @@
                                 name="apiStyle"
                                 value="anthropic"
                             >
-                            <label for="styleAnthropic">Anthropic Style</label>
+                            <label for="styleAnthropic">Anthropic</label>
                         </div>
                     </div>
                 </div>
 
-                <!-- Current Status (inside form) -->
-                <div
-                    class="section"
-                    style="margin-top: 20px;"
-                >
-                    <h2>📊 Current Status</h2>
+                <!-- Current Status -->
+                <div class="section" style="margin-top:14px; background:var(--vscode-sideBar-background, var(--vscode-editor-background))">
+                    <h2>Current Status</h2>
                     <div id="currentStatus">
-                        <p><em>Waiting for connection...</em></p>
+                        <p style="color:var(--vscode-descriptionForeground); font-size:0.9em"><em>Loading…</em></p>
                     </div>
                 </div>
 
-                <div class="button-group">
-                    <button
-                        type="submit"
-                        id="saveBtn"
-                    >💾 Save Configuration</button>
-                    <button
-                        type="button"
-                        id="testBtn"
-                        class="secondary"
-                    >🔍 Test Connection</button>
-                    <button
-                        type="button"
-                        id="fetchModelsBtn"
-                        class="secondary"
-                    >🔄 Update Model List</button>
-                    <button
-                        type="button"
-                        id="clearBtn"
-                        class="secondary"
-                    >🗑️ Clear Configuration</button>
+                <div class="button-row">
+                    <button type="submit" id="saveBtn">💾 Save</button>
+                    <button type="button" id="testBtn" class="secondary">🔍 Test Connection</button>
+                    <button type="button" id="fetchModelsBtn" class="secondary">🔄 Update Models</button>
+                    <div class="spacer"></div>
+                    <button type="button" id="clearBtn" class="danger">🗑️ Clear Config</button>
                 </div>
             </form>
         </div>
@@ -464,7 +594,7 @@
         const vscode = acquireVsCodeApi();
 
         // UI Elements
-        const statusEl = document.getElementById('status');
+        const toastEl = document.getElementById('toast');
         const form = document.getElementById('configForm');
         const baseUrlInput = document.getElementById('baseUrl');
         const tokenInput = document.getElementById('token');
@@ -477,194 +607,231 @@
         const stopServerBtn = document.getElementById('stopServerBtn');
         const openWebUIBtn = document.getElementById('openWebUIBtn');
         const openManagerBtn = document.getElementById('openManagerBtn');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const editUrlBtn = document.getElementById('editUrlBtn');
+        const serverBadge = document.getElementById('serverBadge');
         const currentStatusEl = document.getElementById('currentStatus');
 
-        // Tab Navigation
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
+        let toastTimer = null;
 
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const targetTab = tab.getAttribute('data-tab');
-
-                // Remove active class from all tabs and contents
-                tabs.forEach(t => t.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
-
-                // Add active class to clicked tab and corresponding content
-                tab.classList.add('active');
-                document.getElementById('tab-' + targetTab).classList.add('active');
-            });
-        });
-
-        // Show status message
-        function showStatus(message, type = 'info') {
-            statusEl.textContent = message;
-            statusEl.className = 'status ' + type;
-            statusEl.classList.remove('hidden');
-
-            setTimeout(() => {
-                statusEl.classList.add('hidden');
+        // ── Toast ─────────────────────────────────────────────────────────
+        function showToast(message, type = 'info') {
+            if (toastTimer) clearTimeout(toastTimer);
+            toastEl.textContent = message;
+            toastEl.className = 'toast-bar ' + type;
+            toastTimer = setTimeout(() => {
+                toastEl.className = 'toast-bar hidden';
             }, 5000);
         }
 
-        // Send message to extension
+        // ── Tab navigation ────────────────────────────────────────────────
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const target = tab.getAttribute('data-tab');
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + target).classList.add('active');
+            });
+        });
+
+        // ── Server badge ──────────────────────────────────────────────────
+        const BADGE_STATES = {
+            stopped:  { cls: 'stopped',  dot: '○', label: 'Stopped' },
+            starting: { cls: 'starting', dot: '⏳', label: 'Starting…' },
+            running:  { cls: 'running',  dot: '●', label: 'Running' },
+            stopping: { cls: 'stopping', dot: '⏳', label: 'Stopping…' },
+        };
+
+        function setServerBadge(state) {
+            const s = BADGE_STATES[state] || BADGE_STATES.stopped;
+            serverBadge.className = 'server-badge ' + s.cls;
+            serverBadge.innerHTML = `<span class="dot">${s.dot}</span> ${s.label}`;
+        }
+
+        // ── Send message to extension ─────────────────────────────────────
         function sendMessage(type, data) {
             vscode.postMessage({ type, ...data });
         }
 
-        // Handle form submission
+        // ── Form submit ───────────────────────────────────────────────────
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const apiStyle = document.querySelector('input[name="apiStyle"]:checked').value;
-
             sendMessage('save', {
                 baseUrl: baseUrlInput.value,
                 token: tokenInput.value,
-                apiStyle: apiStyle,
-                tinglyBoxUrl: tinglyBoxUrlInput.value
+                apiStyle,
+                tinglyBoxUrl: tinglyBoxUrlInput.value,
             });
         });
 
-        // Test connection
+        // ── Test connection ───────────────────────────────────────────────
         testBtn.addEventListener('click', () => {
             const apiStyle = document.querySelector('input[name="apiStyle"]:checked').value;
             sendMessage('test', {
                 baseUrl: baseUrlInput.value,
                 token: tokenInput.value,
-                apiStyle: apiStyle
+                apiStyle,
             });
         });
 
-        // Update model list
+        // ── Update model list ─────────────────────────────────────────────
         fetchModelsBtn.addEventListener('click', () => {
             fetchModelsBtn.disabled = true;
-            fetchModelsBtn.textContent = '⏳ Updating...';
+            fetchModelsBtn.textContent = '⏳ Updating…';
             sendMessage('fetchModels');
         });
 
-        // Clear configuration
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                sendMessage('clear');
+        // ── Clear config ──────────────────────────────────────────────────
+        clearBtn.addEventListener('click', () => sendMessage('clear'));
+
+        // ── Start server ──────────────────────────────────────────────────
+        startServerBtn.addEventListener('click', () => {
+            setServerBadge('starting');
+            startServerBtn.disabled = true;
+            sendMessage('startServer');
+            // Re-enable after 30s fallback in case extension never responds
+            setTimeout(() => { startServerBtn.disabled = false; }, 30000);
+        });
+
+        // ── Stop server ───────────────────────────────────────────────────
+        stopServerBtn.addEventListener('click', () => {
+            setServerBadge('stopping');
+            stopServerBtn.disabled = true;
+            sendMessage('stopServer');
+            setTimeout(() => { stopServerBtn.disabled = false; }, 10000);
+        });
+
+        // ── Open web UI ───────────────────────────────────────────────────
+        openWebUIBtn.addEventListener('click', () => sendMessage('openWebUI'));
+
+        // ── Language model manager ────────────────────────────────────────
+        openManagerBtn.addEventListener('click', () => sendMessage('openManager'));
+
+        // ── Copy URL ──────────────────────────────────────────────────────
+        copyUrlBtn.addEventListener('click', () => {
+            const url = tinglyBoxUrlInput.value;
+            if (!url) {
+                showToast('No URL to copy — start the server first.', 'info');
+                return;
+            }
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('✅ URL copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Could not copy — select the URL manually.', 'error');
             });
-        } else {
-            console.error('clearBtn not found');
+        });
+
+        // ── Edit URL toggle ───────────────────────────────────────────────
+        editUrlBtn.addEventListener('click', () => {
+            const isReadonly = tinglyBoxUrlInput.hasAttribute('readonly');
+            if (isReadonly) {
+                tinglyBoxUrlInput.removeAttribute('readonly');
+                editUrlBtn.title = 'Lock URL field';
+                editUrlBtn.textContent = '🔒';
+                tinglyBoxUrlInput.focus();
+            } else {
+                tinglyBoxUrlInput.setAttribute('readonly', '');
+                editUrlBtn.title = 'Edit URL manually';
+                editUrlBtn.textContent = '✏️';
+            }
+        });
+
+        // ── Render structured status ──────────────────────────────────────
+        function renderStatus(data) {
+            if (!data.configured) {
+                currentStatusEl.innerHTML =
+                    '<p style="color:var(--vscode-descriptionForeground); font-size:0.9em">⚠️ Not configured yet.</p>';
+                return;
+            }
+
+            let hostDisplay = data.baseUrl;
+            try {
+                const u = new URL(data.baseUrl);
+                hostDisplay = u.hostname + (u.port ? ':' + u.port : '');
+            } catch (_) { /* keep raw */ }
+
+            const styleLabel = data.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            const tokenHtml = data.tokenSet
+                ? '<span class="badge-ok">✅ Set</span>'
+                : '<span class="badge-warn">⚠️ Not set</span>';
+
+            currentStatusEl.innerHTML = `<div class="status-grid">
+  <span class="key">Base URL</span><span class="val">${escHtml(hostDisplay)}</span>
+  <span class="key">API Style</span><span class="val">${escHtml(styleLabel)}</span>
+  <span class="key">Token</span><span class="val">${tokenHtml}</span>
+</div>`;
         }
 
-        // Start server
-        if (startServerBtn) {
-            startServerBtn.addEventListener('click', () => {
-                startServerBtn.disabled = true;
-                startServerBtn.textContent = '⏳ Starting...';
-                sendMessage('startServer');
-                setTimeout(() => {
-                    startServerBtn.disabled = false;
-                    startServerBtn.textContent = '🚀 Start';
-                }, 3000);
-            });
-        } else {
-            console.error('startServerBtn not found');
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
-        // Stop server
-        if (stopServerBtn) {
-            stopServerBtn.addEventListener('click', () => {
-                stopServerBtn.disabled = true;
-                stopServerBtn.textContent = '⏳ Stopping...';
-                sendMessage('stopServer');
-                setTimeout(() => {
-                    stopServerBtn.disabled = false;
-                    stopServerBtn.textContent = '🛑 Stop';
-                }, 3000);
-            });
-        } else {
-            console.error('stopServerBtn not found');
-        }
-
-        // Open web UI
-        if (openWebUIBtn) {
-            openWebUIBtn.addEventListener('click', () => {
-                sendMessage('openWebUI');
-            });
-        } else {
-            console.error('openWebUIBtn not found');
-        }
-
-        // Open language model manager
-        if (openManagerBtn) {
-            openManagerBtn.addEventListener('click', () => {
-                sendMessage('openManager');
-            });
-        } else {
-            console.error('openManagerBtn not found');
-        }
-
-        // Receive messages from extension
+        // ── Incoming messages from extension ─────────────────────────────
         window.addEventListener('message', (event) => {
-            const message = event.data;
+            const msg = event.data;
 
-            switch (message.type) {
+            switch (msg.type) {
                 case 'config':
-                    // Update form with current config
-                    if (message.config) {
-                        baseUrlInput.value = message.config.baseUrl || '';
-                        tokenInput.value = message.config.token || '';
-                        tinglyBoxUrlInput.value = message.config.tinglyBoxUrl || '';
-                        const radio = document.querySelector(`input[name="apiStyle"][value="${message.config.apiStyle}"]`);
+                    if (msg.config) {
+                        baseUrlInput.value = msg.config.baseUrl || '';
+                        tokenInput.value = msg.config.token || '';
+                        tinglyBoxUrlInput.value = msg.config.tinglyBoxUrl || '';
+                        const radio = document.querySelector(`input[name="apiStyle"][value="${msg.config.apiStyle}"]`);
                         if (radio) radio.checked = true;
                     } else {
-                        // Set default values for new users
                         baseUrlInput.value = 'http://localhost:12580/tingly/openai';
                         tinglyBoxUrlInput.value = 'http://localhost:12580';
                     }
                     break;
 
                 case 'status':
-                    // Update current status display
-                    currentStatusEl.innerHTML = message.html;
+                    renderStatus(msg);
                     break;
 
                 case 'saved':
-                    showStatus('✅ Configuration saved successfully!', 'success');
+                    showToast('✅ Configuration saved!', 'success');
                     break;
 
                 case 'cleared':
-                    showStatus('✅ Configuration cleared successfully!', 'success');
+                    showToast('✅ Configuration cleared.', 'success');
+                    baseUrlInput.value = '';
+                    tokenInput.value = '';
+                    tinglyBoxUrlInput.value = '';
                     break;
 
                 case 'error':
-                    showStatus('❌ ' + message.message, 'error');
+                    showToast('❌ ' + msg.message, 'error');
                     break;
 
                 case 'testResult':
-                    // Clear previous content
-                    currentStatusEl.innerHTML = '';
-
-                    const p = document.createElement('p');
-                    if (message.success) {
-                        p.style.color = 'var(--vscode-testingIconPassedForeground)';
-                        p.textContent = '✅ Connection successful! Found ' + message.modelCount + ' models.';
+                    if (msg.success) {
+                        currentStatusEl.innerHTML = `<p class="badge-ok" style="font-size:0.9em">✅ Connection successful — ${msg.modelCount} model(s) found.</p>`;
                     } else {
-                        p.style.color = 'var(--vscode-errorForeground)';
-                        p.textContent = '❌ Connection failed: ' + message.error;
+                        currentStatusEl.innerHTML = `<p style="color:var(--vscode-errorForeground); font-size:0.9em">❌ ${escHtml(msg.error || 'Connection failed')}</p>`;
                     }
-                    currentStatusEl.appendChild(p);
                     break;
 
                 case 'fetchModelsStart':
-                    showStatus('🔄 Fetching models...', 'info');
+                    showToast('🔄 Fetching models…', 'info');
                     break;
 
                 case 'fetchModelsEnd':
                     fetchModelsBtn.disabled = false;
-                    fetchModelsBtn.textContent = '🔄 Update Model List';
+                    fetchModelsBtn.textContent = '🔄 Update Models';
+                    break;
+
+                case 'serverStatus':
+                    setServerBadge(msg.status);
+                    startServerBtn.disabled = false;
+                    stopServerBtn.disabled = false;
                     break;
 
                 case 'updateTinglyBoxUrl':
-                    if (message.url && tinglyBoxUrlInput) {
-                        tinglyBoxUrlInput.value = message.url;
-                        showStatus('🔗 Tingly Box server URL auto-detected!', 'success');
+                    if (msg.url) {
+                        tinglyBoxUrlInput.value = msg.url;
+                        showToast('🔗 Server URL auto-detected!', 'success');
                     }
                     break;
             }

@@ -514,6 +514,7 @@ export class ConfigWebviewProvider {
     private async sendCurrentConfig(): Promise<void> {
         const config = await this.config.getProviderConfig('default');
         this.sendMessage('config', { config });
+        await this.sendStatus();
     }
 
     /**
@@ -524,26 +525,29 @@ export class ConfigWebviewProvider {
     }
 
     /**
-     * Send status information to webview
+     * Push server running state to the webview
+     */
+    sendServerStatus(status: 'starting' | 'running' | 'stopped' | 'stopping'): void {
+        this.sendMessage('serverStatus', { status });
+    }
+
+    /**
+     * Send status information to webview as structured data
      */
     private async sendStatus(): Promise<void> {
         const config = await this.config.getProviderConfig('default');
 
-        let html: string;
         if (config) {
-            const url = new URL(config.baseUrl);
-            const styleLabel = config.apiStyle === 'anthropic' ? 'Anthropic' : 'OpenAI';
-            const tokenStatus = config.token ? '✅ Set' : '⚠️ Not set';
-
-            html = `<p><strong>Base URL:</strong> ${url.hostname}:${url.port || '80'}</p>
-        <p><strong>API Style:</strong> ${styleLabel}</p>
-        <p><strong>Token:</strong> ${tokenStatus}</p>
-        <p><strong>Provider ID:</strong> default</p>`;
+            this.sendMessage('status', {
+                configured: true,
+                baseUrl: config.baseUrl,
+                apiStyle: config.apiStyle,
+                tokenSet: !!config.token,
+                tinglyBoxUrl: config.tinglyBoxUrl || '',
+            });
         } else {
-            html = '<p><strong>⚠️ Status:</strong> Not configured</p>';
+            this.sendMessage('status', { configured: false });
         }
-
-        this.sendMessage('status', { html });
     }
 
     /**

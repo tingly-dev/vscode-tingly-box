@@ -227,6 +227,8 @@ export function activate(context: vscode.ExtensionContext) {
                     output.appendLine(`[Tingly Box] Starting tingly-box server on port ${serverPort}...`);
                     output.show(true);
 
+                    webviewProvider?.sendServerStatus('starting');
+
                     // Start the server process using npx with custom port
                     const args = ['tingly-box@latest'];
                     if (port && port !== '12580') {
@@ -252,6 +254,7 @@ export function activate(context: vscode.ExtensionContext) {
                                 const urlInfo = extractFromServerOutput(message);
                                 if (urlInfo) {
                                     urlExtracted = true;
+                                    webviewProvider?.sendServerStatus('running');
                                     handleServerUrlExtracted(urlInfo, config, output, webviewProvider);
                                 }
                             }
@@ -274,12 +277,14 @@ export function activate(context: vscode.ExtensionContext) {
                             output.appendLine('[Tingly Box] Server process exited normally');
                         }
                         serverProcess = null;
+                        webviewProvider?.sendServerStatus('stopped');
                     });
 
                     serverProcess.on('error', (error) => {
                         output.appendLine(`[Tingly Box] Server error: ${error.message}`);
                         vscode.window.showErrorMessage(`Failed to start Tingly Box server: ${error.message}`);
                         serverProcess = null;
+                        webviewProvider?.sendServerStatus('stopped');
                     });
 
                     vscode.window.showInformationMessage(`Tingly Box server starting on port ${serverPort}...`);
@@ -302,6 +307,8 @@ export function activate(context: vscode.ExtensionContext) {
                     output.appendLine('[Tingly Box] Stopping tingly-box server...');
                     output.show(true);
 
+                    webviewProvider?.sendServerStatus('stopping');
+
                     // Execute npx tingly-box@latest stop
                     exec('npx tingly-box@latest stop', { encoding: 'utf-8' }, (error: unknown, stdout: string, stderr: string) => {
                         if (error) {
@@ -311,6 +318,7 @@ export function activate(context: vscode.ExtensionContext) {
                             output.appendLine('[Tingly Box] Server stopped successfully');
                             vscode.window.showInformationMessage('Tingly Box server stopped successfully!');
                         }
+                        webviewProvider?.sendServerStatus('stopped');
 
                         if (stdout) {
                             output.append(`[Server] ${stdout}`);
