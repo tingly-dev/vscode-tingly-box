@@ -7,7 +7,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../../types/index.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
-import { API_KEY_REQUIREMENTS } from '../../constants/ModelLimits.js';
 import { buildApiUrl } from '../../utils/UrlHelper.js';
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
 
@@ -266,8 +265,9 @@ export class AnthropicAdapter extends BaseAPIAdapter {
 
   /**
    * Validate API key format for Anthropic
+   * TODO: API should provide validation requirements
    */
   protected validateApiKey(key: string): boolean {
-    return key.length >= API_KEY_REQUIREMENTS.ANTHROPIC_MIN_LENGTH;
+    return key.length > 0;
   }
 }

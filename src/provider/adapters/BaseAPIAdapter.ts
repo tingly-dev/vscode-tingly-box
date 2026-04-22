@@ -5,11 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ConfigManager } from '../../config/ConfigManager.js';
-import {
-    DEFAULT_TOKEN_LIMITS,
-    MODEL_FAMILY_LIMITS,
-    MODEL_PATTERNS,
-} from '../../constants/ModelLimits.js';
+import { DEFAULT_TOKEN_LIMITS } from '../../constants/ModelLimits.js';
 import type { ModelInfo } from '../../types/index.js';
 import { BaseProviderAdapter } from '../BaseProvider.js';
 
@@ -87,69 +83,16 @@ export abstract class BaseAPIAdapter extends BaseProviderAdapter {
 
     /**
      * Parse models from OpenAI-compatible API response
+     * Uses fallback defaults for family and token limits
+     * TODO: API should provide family, capabilities, maxInputTokens, and maxOutputTokens
      */
     protected parseModelsFromAPI(response: OpenAIModelsResponse, providerId: string): ModelInfo[] {
         return response.data.map((model) => {
             const modelId = `${providerId}:${model.id}`;
 
-            // Parse model name to determine capabilities
-            const modelName = model.id.toLowerCase();
-
-            // Determine model family
-            let family = 'unknown';
-            if (modelName.includes('gpt-4')) {
-                family = 'gpt-4';
-            } else if (modelName.includes('gpt-3.5')) {
-                family = 'gpt-3.5';
-            } else if (modelName.includes('claude')) {
-                family = 'claude';
-            } else if (modelName.includes('llama')) {
-                family = 'llama';
-            } else if (modelName.includes('deepseek')) {
-                family = 'deepseek';
-            } else if (modelName.includes('gemini')) {
-                family = 'gemini';
-            }
-
-            // Determine capabilities based on model name
-            const supportsVision = MODEL_PATTERNS.VISION.some(pattern =>
-                modelName.includes(pattern)
-            );
-
-            const supportsTools = true; // Assume all models support tools for now, adjust as needed
-
-            // Get token limits from configuration or use defaults
-            let maxInputTokens = DEFAULT_TOKEN_LIMITS.MAX_INPUT_TOKENS;
-            let maxOutputTokens = DEFAULT_TOKEN_LIMITS.MAX_OUTPUT_TOKENS;
-
-            // Adjust based on model family
-            if (modelName.includes('gpt-4')) {
-                const limits = modelName.includes('mini')
-                    ? MODEL_FAMILY_LIMITS['gpt-4-mini']
-                    : MODEL_FAMILY_LIMITS['gpt-4'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            } else if (modelName.includes('gpt-3.5')) {
-                const limits = MODEL_FAMILY_LIMITS['gpt-3.5'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            } else if (modelName.includes('claude-3')) {
-                const limits = MODEL_FAMILY_LIMITS['claude-3'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            } else if (modelName.includes('claude-2')) {
-                const limits = MODEL_FAMILY_LIMITS['claude-2'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            } else if (modelName.includes('deepseek-r1')) {
-                const limits = MODEL_FAMILY_LIMITS['deepseek-r1'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            } else if (modelName.includes('deepseek')) {
-                const limits = MODEL_FAMILY_LIMITS['deepseek'];
-                maxInputTokens = limits.maxInputTokens;
-                maxOutputTokens = limits.maxOutputTokens;
-            }
+            // Use default token limits as fallback
+            const maxInputTokens = DEFAULT_TOKEN_LIMITS.MAX_INPUT_TOKENS;
+            const maxOutputTokens = DEFAULT_TOKEN_LIMITS.MAX_OUTPUT_TOKENS;
 
             // Version from creation timestamp
             const version = new Date(model.created * 1000).toISOString().split('T')[0];
@@ -158,13 +101,13 @@ export abstract class BaseAPIAdapter extends BaseProviderAdapter {
                 id: modelId,
                 name: model.id,
                 provider: providerId,
-                family,
+                family: 'unknown', // Should be provided by API
                 version,
                 maxInputTokens,
                 maxOutputTokens,
                 capabilities: {
-                    imageInput: supportsVision,
-                    toolCalling: supportsTools,
+                    imageInput: false, // Should be provided by API
+                    toolCalling: true, // Assume true for now
                 },
             };
         });

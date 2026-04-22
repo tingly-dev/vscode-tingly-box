@@ -7,7 +7,7 @@
 import OpenAI from 'openai';
 import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../../types/index.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
-import { API_KEY_REQUIREMENTS } from '../../constants/ModelLimits.js';
+import { DEFAULT_TOKEN_LIMITS } from '../../constants/ModelLimits.js';
 import { BaseAPIAdapter } from './BaseAPIAdapter.js';
 
 /**
@@ -72,50 +72,11 @@ export class OpenAIAdapter extends BaseAPIAdapter {
       // Convert API response to ModelInfo format
       this.cachedModels = models.data.map((model: OpenAI.Model) => {
         const modelId = `${this.id}:${model.id}`;
-        const modelName = model.id.toLowerCase();
 
-        // Determine model family
-        let family = 'unknown';
-        if (modelName.includes('gpt-4')) {
-          family = 'gpt-4';
-        } else if (modelName.includes('gpt-3.5')) {
-          family = 'gpt-3.5';
-        } else if (modelName.includes('claude')) {
-          family = 'claude';
-        } else if (modelName.includes('llama')) {
-          family = 'llama';
-        } else if (modelName.includes('deepseek')) {
-          family = 'deepseek';
-        } else if (modelName.includes('gemini')) {
-          family = 'gemini';
-        }
-
-        // Determine capabilities
-        const supportsVision = modelName.includes('vision') || modelName.includes('gpt-4o') || modelName.includes('claude-3');
-        const supportsTools = true; // Most OpenAI-compatible models support tools
-
-        // Get token limits based on model family
-        let maxInputTokens = 128000;
-        let maxOutputTokens = 4096;
-
-        if (modelName.includes('gpt-4')) {
-          if (modelName.includes('mini')) {
-            maxInputTokens = 128000;
-            maxOutputTokens = 16384;
-          } else {
-            maxInputTokens = 128000;
-            maxOutputTokens = 4096;
-          }
-        } else if (modelName.includes('gpt-3.5')) {
-          maxInputTokens = 16385;
-          maxOutputTokens = 4096;
-        } else if (modelName.includes('claude-3')) {
-          maxInputTokens = 200000;
-          maxOutputTokens = 8192;
-        } else if (modelName.includes('deepseek-r1')) {
-          maxInputTokens = 64000;
-          maxOutputTokens = 8000;
-        }
+        // Use default token limits as fallback
+        // TODO: Should be provided by the API
+        const maxInputTokens = DEFAULT_TOKEN_LIMITS.MAX_INPUT_TOKENS;
+        const maxOutputTokens = DEFAULT_TOKEN_LIMITS.MAX_OUTPUT_TOKENS;
 
         // Version from creation timestamp
         const version = new Date(model.created * 1000).toISOString().split('T')[0];
@@ -124,13 +85,13 @@ export class OpenAIAdapter extends BaseAPIAdapter {
           id: modelId,
           name: model.id,
           provider: this.id,
-          family,
+          family: 'unknown', // Should be provided by API
           version,
           maxInputTokens,
           maxOutputTokens,
           capabilities: {
-            imageInput: supportsVision,
-            toolCalling: supportsTools,
+            imageInput: false, // Should be provided by API
+            toolCalling: true, // Assume true for now
           },
         };
       });
@@ -311,8 +272,9 @@ export class OpenAIAdapter extends BaseAPIAdapter {
 
   /**
    * Validate API key format for OpenAI
+   * TODO: API should provide validation requirements
    */
   protected validateApiKey(key: string): boolean {
-    return key.length >= API_KEY_REQUIREMENTS.OPENAI_MIN_LENGTH;
+    return key.length > 0;
   }
 }
