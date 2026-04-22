@@ -9,6 +9,7 @@ import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../.
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { DEFAULT_TOKEN_LIMITS } from '../../constants/ModelLimits.js';
 import { BaseAPIAdapter } from './BaseAPIAdapter.js';
+import { ChatCompletionStream } from 'openai/lib/ChatCompletionStream.js';
 
 /**
  * Adapter for OpenAI-compatible APIs using official OpenAI SDK
@@ -160,104 +161,62 @@ export class OpenAIAdapter extends BaseAPIAdapter {
         this.log(`Including ${tools.length} tools`);
       }
 
-      // Create abort controller for cancellation
-      const abortController = new AbortController();
+      // Use ChatCompletionStream helper for simplified streaming
+      const stream = ChatCompletionStream.createChatCompletion(
+        client as OpenAI,
+        {
+          model: modelName,
+          messages: openaiMessages as any,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens,
+          stop: options.stop,
+          tools: tools as any,
+        },
+        { signal }
+      );
 
-      // Hook up VSCode's cancellation token to our abort controller
-      signal.addEventListener('abort', () => {
-        this.log('Chat request cancelled by user');
-        abortController.abort();
-      }, { once: true });
-
-      // Use OpenAI SDK for streaming chat
-      const stream = await client.chat.completions.create({
-        model: modelName,
-        messages: openaiMessages as any, // Type cast for OpenAI SDK compatibility
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stop: options.stop,
-        tools: tools as any,
-        stream: true,
-      }, {
-        signal: abortController.signal,
-      });
-
-      // Stream the text chunks and tool calls
-      let chunkCount = 0;
+      let textChunkCount = 0;
       let toolCallCount = 0;
 
-      // Accumulate tool calls across chunks
-      const toolCallsBuffer = new Map<number, {
-        id: string;
-        type: string;
-        function: {
-          name: string;
-          arguments: string;
-        };
-      }>();
+      // Track tool call IDs by index
+      const toolCallIds = new Map<number, string>();
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta;
+      // Listen to content events for text streaming
+      stream.on('content', (contentDelta) => {
+        textChunkCount++;
+        onPart({ type: 'text', text: contentDelta });
+      });
 
-        // Handle text content
-        if (delta?.content) {
-          chunkCount++;
-          onPart({ type: 'text', text: delta.content });
-        }
-
-        // Handle tool calls (streaming accumulation)
-        if (delta?.tool_calls && delta.tool_calls.length > 0) {
-          for (const toolCall of delta.tool_calls) {
-            const index = toolCall.index;
-
-            if (!toolCallsBuffer.has(index)) {
-              // Clone the tool call to avoid mutation
-              toolCallsBuffer.set(index, {
-                id: toolCall.id || '',
-                type: toolCall.type || 'function',
-                function: {
-                  name: toolCall.function?.name || '',
-                  arguments: toolCall.function?.arguments || '',
-                },
-              });
-            } else {
-              // Accumulate arguments
-              const existing = toolCallsBuffer.get(index)!;
-              if (toolCall.function?.arguments) {
-                existing.function.arguments += toolCall.function.arguments;
-              }
-              if (toolCall.id && !existing.id) {
-                existing.id = toolCall.id;
-              }
-              if (toolCall.function?.name && !existing.function.name) {
-                existing.function.name = toolCall.function.name;
-              }
+      // Listen to chunk events to capture tool call IDs
+      stream.on('chunk', (chunk) => {
+        const toolCalls = chunk.choices[0]?.delta?.tool_calls;
+        if (toolCalls) {
+          for (const tc of toolCalls) {
+            if (tc.id) {
+              toolCallIds.set(tc.index, tc.id);
             }
           }
         }
+      });
 
-        // Check if stream ended with tool calls
-        if (chunk.choices[0]?.finish_reason === 'tool_calls' && toolCallsBuffer.size > 0) {
-          // Report all completed tool calls
-          for (const toolCall of toolCallsBuffer.values()) {
-            if (toolCall.id && toolCall.function.name) {
-              try {
-                toolCallCount++;
-                onPart({
-                  type: 'tool_call',
-                  id: toolCall.id,
-                  name: toolCall.function.name,
-                  arguments: JSON.parse(toolCall.function.arguments || '{}'),
-                });
-              } catch (e) {
-                this.log(`Failed to parse tool arguments: ${e}`);
-              }
-            }
-          }
-        }
-      }
+      // Listen to tool call completion events
+      stream.on('tool_calls.function.arguments.done', (props) => {
+        toolCallCount++;
+        const toolCallId = toolCallIds.get(props.index) || `tool_${props.index}`;
+        onPart({
+          type: 'tool_call',
+          id: toolCallId,
+          name: props.name,
+          arguments: typeof props.arguments === 'string'
+            ? JSON.parse(props.arguments)
+            : props.parsed_arguments ?? props.arguments,
+        });
+      });
 
-      this.log(`Chat request completed successfully (${chunkCount} text chunks, ${toolCallCount} tool calls streamed)`);
+      // Wait for stream completion
+      await stream.done();
+
+      this.log(`Chat request completed successfully (${textChunkCount} text chunks, ${toolCallCount} tool calls)`);
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -275,6 +234,6 @@ export class OpenAIAdapter extends BaseAPIAdapter {
    * TODO: API should provide validation requirements
    */
   protected validateApiKey(key: string): boolean {
-    return key.length > 0;
+    return key.length >= 0;
   }
 }

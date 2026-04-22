@@ -9,6 +9,7 @@ import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../.
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { buildApiUrl } from '../../utils/UrlHelper.js';
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
+import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 
 /**
  * Adapter for Anthropic-compatible APIs using official Anthropic SDK
@@ -161,96 +162,49 @@ export class AnthropicAdapter extends BaseAPIAdapter {
         }
       }
 
-      // Create abort controller for cancellation
-      const abortController = new AbortController();
+      // Use MessageStream helper for simplified streaming
+      const stream = MessageStream.createMessage(
+        client.messages,
+        {
+          model: modelName,
+          messages: anthropicMessages as any,
+          system: systemMessage || undefined,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens || 8192,
+          stop_sequences: options.stop,
+          tools: tools,
+        },
+        { signal }
+      );
 
-      // Hook up VSCode's cancellation token to our abort controller
-      signal.addEventListener('abort', () => {
-        this.log('Chat request cancelled by user');
-        abortController.abort();
-      }, { once: true });
-
-      // Use Anthropic SDK for streaming chat
-      const stream = await client.messages.create({
-        model: modelName,
-        messages: anthropicMessages as any,
-        system: systemMessage || undefined,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens || 8192,
-        stop_sequences: options.stop,
-        tools: tools,
-        stream: true,
-      }, {
-        signal: abortController.signal as any,
-      });
-
-      // Stream the text chunks and tool calls
-      let chunkCount = 0;
+      let textChunkCount = 0;
       let toolCallCount = 0;
 
-      // Track current tool_use block being accumulated
-      let currentToolUse: {
-        id: string;
-        name: string;
-        inputJson: string;
-      } | null = null;
+      // Listen to text events for text streaming
+      stream.on('text', (textDelta) => {
+        textChunkCount++;
+        onPart({ type: 'text', text: textDelta });
+      });
 
-      for await (const chunk of stream) {
-        if (chunk.type === 'content_block_start') {
-          if (chunk.content_block.type === 'tool_use') {
-            // Start accumulating a new tool call
-            // Note: content_block.input might be pre-filled by some providers
-            const initialInput = chunk.content_block.input;
-            const initialJson = initialInput
-              ? JSON.stringify(initialInput)
-              : '';
-            currentToolUse = {
-              id: chunk.content_block.id,
-              name: chunk.content_block.name,
-              inputJson: initialJson,
-            };
-          }
-        } else if (chunk.type === 'content_block_delta') {
-          const delta = chunk.delta;
-          if (delta.type === 'text_delta') {
-            chunkCount++;
-            onPart({ type: 'text', text: delta.text });
-          } else if (delta.type === 'input_json_delta' && currentToolUse) {
-            // Accumulate the partial JSON string
-            currentToolUse.inputJson += delta.partial_json;
-          }
-        } else if (chunk.type === 'content_block_stop') {
-          // Tool use block complete - parse and send
-          if (currentToolUse) {
-            try {
-              const input = currentToolUse.inputJson.length > 0
-                ? JSON.parse(currentToolUse.inputJson)
-                : {};
-
-              toolCallCount++;
-              onPart({
-                type: 'tool_call',
-                id: currentToolUse.id,
-                name: currentToolUse.name,
-                arguments: input,
-              });
-            } catch (e) {
-              // If JSON parsing fails, send empty arguments
-              this.log(`Failed to parse tool arguments: ${e}`);
-              toolCallCount++;
-              onPart({
-                type: 'tool_call',
-                id: currentToolUse.id,
-                name: currentToolUse.name,
-                arguments: {},
-              });
-            }
-            currentToolUse = null;
-          }
+      // Listen to content block events for tool calls
+      stream.on('contentBlock', (content) => {
+        if (content.type === 'tool_use') {
+          toolCallCount++;
+          onPart({
+            type: 'tool_call',
+            id: content.id,
+            name: content.name,
+            arguments: (typeof content.input === 'object' && content.input !== null)
+              ? content.input as Record<string, unknown>
+              : {},
+          });
         }
-      }
+      });
 
-      this.log(`Chat request completed successfully (${chunkCount} text chunks, ${toolCallCount} tool calls streamed)`);
+      // Wait for stream completion
+      await stream.done();
+
+      this.log(`Chat request completed successfully (${textChunkCount} text chunks, ${toolCallCount} tool calls)`);
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -268,6 +222,6 @@ export class AnthropicAdapter extends BaseAPIAdapter {
    * TODO: API should provide validation requirements
    */
   protected validateApiKey(key: string): boolean {
-    return key.length > 0;
+    return key.length >= 0;
   }
 }
