@@ -2,7 +2,7 @@
   "name": "vscode-tingly-box",
   "displayName": "Tingly Box For VS Code",
   "description": "Bring Your Own Key (BYOK) for VSCode GitHub Copilot Chat - Connect any OpenAI/Anthropic compatible provider with your own API keys",
-  "version": "0.260423.1",
+  "version": "0.260423.2",
   "publisher": "tingly-dev",
   "license": "MPL-2.0",
   "engines": {
