@@ -15,7 +15,7 @@ import { buildApiUrl } from '../utils/UrlHelper.js';
  * Webview message types
  */
 export interface WebviewMessage {
-    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer' | 'openWebUI' | 'openManager';
+    type: 'save' | 'test' | 'clear' | 'fetchModels' | 'startServer' | 'stopServer' | 'openWebUI' | 'openManager' | 'queryServerStatus';
     baseUrl?: string;
     token?: string;
     apiStyle?: APIStyle;
@@ -147,15 +147,30 @@ function isOpenManagerMessage(msg: WebviewMessage): msg is OpenManagerMessage {
     return msg.type === 'openManager';
 }
 
+/**
+ * Type guard for queryServerStatus
+ */
+function isQueryServerStatusMessage(msg: WebviewMessage): msg is WebviewMessage & { type: 'queryServerStatus' } {
+    return msg.type === 'queryServerStatus';
+}
+
 export class ConfigWebviewProvider {
     private currentPanel?: vscode.WebviewPanel;
     private disposables: vscode.Disposable[] = [];
+    private serverStatusProvider?: () => Promise<'starting' | 'running' | 'stopped' | 'stopping'>;
 
     constructor(
         private readonly config: ConfigManager,
         private readonly outputChannel: vscode.OutputChannel,
         private readonly extensionUri: vscode.Uri
     ) { }
+
+    /**
+     * Set a callback to query the real server status (process alive + HTTP probe)
+     */
+    setServerStatusProvider(fn: () => Promise<'starting' | 'running' | 'stopped' | 'stopping'>): void {
+        this.serverStatusProvider = fn;
+    }
 
     /**
      * Show or create the configuration webview
@@ -200,6 +215,9 @@ export class ConfigWebviewProvider {
 
         // Send current config to webview
         await this.sendCurrentConfig();
+
+        // Push real server status on open
+        await this.handleQueryServerStatus();
     }
 
     /**
@@ -301,6 +319,14 @@ export class ConfigWebviewProvider {
                     await this.handleOpenManager();
                 } else {
                     this.sendMessage('error', { message: 'Invalid openManager message format' });
+                }
+                break;
+
+            case 'queryServerStatus':
+                if (isQueryServerStatusMessage(msg)) {
+                    await this.handleQueryServerStatus();
+                } else {
+                    this.sendMessage('error', { message: 'Invalid queryServerStatus message format' });
                 }
                 break;
 
@@ -505,6 +531,21 @@ export class ConfigWebviewProvider {
             this.sendMessage('error', {
                 message: error instanceof Error ? error.message : String(error)
             });
+        }
+    }
+
+    /**
+     * Handle queryServerStatus - probe actual server state and push to webview
+     */
+    private async handleQueryServerStatus(): Promise<void> {
+        try {
+            const status = this.serverStatusProvider
+                ? await this.serverStatusProvider()
+                : 'stopped';
+            this.sendMessage('serverStatus', { status });
+        } catch (error) {
+            this.outputChannel.appendLine(`[Webview] Error querying server status: ${error}`);
+            this.sendMessage('serverStatus', { status: 'stopped' });
         }
     }
 

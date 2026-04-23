@@ -118,6 +118,25 @@ export function activate(context: vscode.ExtensionContext) {
         // Create webview provider
         const webviewProvider = new ConfigWebviewProvider(config, output, context.extensionUri);
 
+        // Provide real server status: process-alive check + HTTP probe fallback
+        webviewProvider.setServerStatusProvider(async () => {
+            if (serverProcess && !serverProcess.killed) {
+                return 'running';
+            }
+            // HTTP probe: try to reach the configured tinglyBoxUrl
+            try {
+                const providerConfig = await config.getProviderConfig('default');
+                const probeUrl = providerConfig?.tinglyBoxUrl?.trim() || 'http://localhost:12580';
+                const res = await fetch(probeUrl, { signal: AbortSignal.timeout(2000) });
+                if (res.ok || res.status < 500) {
+                    return 'running';
+                }
+            } catch {
+                // unreachable — treat as stopped
+            }
+            return 'stopped';
+        });
+
         // Create status bar manager
         const statusBar = new StatusBarManager(config, output);
         context.subscriptions.push(statusBar);

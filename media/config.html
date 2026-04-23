@@ -572,6 +572,9 @@
     openWebUIBtn.addEventListener('click', () => post('openWebUI'));
     openMgrBtn.addEventListener('click', () => post('openManager'));
 
+    // On load, request real server status from extension
+    post('queryServerStatus');
+
     // ── Copy / Edit URL ───────────────────────────────────────
     copyUrlBtn.addEventListener('click', () => {
         const url = tbUrlInput.value.trim();
