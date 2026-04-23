@@ -3,7 +3,8 @@
  * All AI provider adapters must extend this class
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions, ResponsePart } from '../types/index.js';
+import * as vscode from 'vscode';
+import type { ModelInfo, ChatOptions, ResponsePart } from '../types/index.js';
 
 /**
  * Abstract base class for AI provider adapters
@@ -29,14 +30,14 @@ export abstract class BaseProviderAdapter {
   /**
    * Send a chat request with streaming support
    * @param model - Model identifier to use
-   * @param messages - Array of chat messages
+   * @param messages - VSCode chat request messages
    * @param options - Chat options (temperature, max tokens, etc.)
    * @param onPart - Callback for each streaming part (text or tool calls)
    * @param signal - AbortSignal for cancellation
    */
   abstract chat(
     model: string,
-    messages: ProviderMessage[],
+    messages: readonly vscode.LanguageModelChatRequestMessage[],
     options: ChatOptions,
     onPart: (part: ResponsePart) => void,
     signal: AbortSignal
@@ -45,7 +46,7 @@ export abstract class BaseProviderAdapter {
   /**
    * Count tokens for text (default implementation using character-based estimation)
    * Providers can override for more accurate counting
-   * @param text - The text to count tokens for
+   * @param text - The text to count tokens
    * @returns Estimated token count
    */
   async countTokens(text: string): Promise<number> {
@@ -62,36 +63,4 @@ export abstract class BaseProviderAdapter {
    * @returns True if the format is valid
    */
   protected abstract validateApiKey(key: string): boolean;
-
-  /**
-   * Format request for this provider's API
-   * Note: This method is optional and primarily for providers that manually format requests.
-   * AI SDK-based providers do not need to implement this method.
-   * @param model - Model identifier
-   * @param messages - Chat messages
-   * @param options - Chat options
-   * @returns Formatted request body
-   */
-  protected formatRequest(
-    _model: string,
-    _messages: ProviderMessage[],
-    _options: ChatOptions
-  ): Record<string, unknown> {
-    // Default implementation returns empty object
-    // AI SDK handles request formatting internally
-    return {};
-  }
-
-  /**
-   * Parse streaming chunk from provider response
-   * Note: This method is optional and primarily for providers that manually parse SSE streams.
-   * AI SDK-based providers do not need to implement this method.
-   * @param chunk - Raw chunk data from API
-   * @returns Text content or null if not a content chunk
-   */
-  protected parseChunk(_chunk: string): string | null {
-    // Default implementation returns null
-    // AI SDK handles streaming internally
-    return null;
-  }
 }

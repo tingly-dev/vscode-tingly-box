@@ -51,14 +51,6 @@ export interface ModelInfo {
 }
 
 /**
- * Provider-agnostic message format
- */
-export interface ProviderMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string | Array<TextPart | ImagePart | ToolCallPart | ToolResultPart>;
-}
-
-/**
  * Text part in a message
  */
 export interface TextPart {
@@ -119,23 +111,6 @@ export interface ChatOptions {
   tools?: Tool[];
   /** Additional provider-specific options */
   extra?: Record<string, unknown>;
-}
-
-/**
- * OpenAI-specific message format
- */
-export interface OpenAIMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content?: string;
-  tool_calls?: Array<{
-    id: string;
-    type: string;
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-  tool_call_id?: string;
 }
 
 /**

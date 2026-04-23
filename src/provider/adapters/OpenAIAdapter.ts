@@ -5,7 +5,8 @@
  */
 
 import OpenAI from 'openai';
-import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../../types/index.js';
+import * as vscode from 'vscode';
+import type { ChatOptions, ModelInfo, ResponsePart } from '../../types/index.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { DEFAULT_TOKEN_LIMITS } from '../../constants/ModelLimits.js';
 import { BaseAPIAdapter } from './BaseAPIAdapter.js';
@@ -117,7 +118,7 @@ export class OpenAIAdapter extends BaseAPIAdapter {
    */
   async chat(
     model: string,
-    messages: ProviderMessage[],
+    messages: readonly vscode.LanguageModelChatRequestMessage[],
     options: ChatOptions,
     onPart: (part: ResponsePart) => void,
     signal: AbortSignal
@@ -142,8 +143,8 @@ export class OpenAIAdapter extends BaseAPIAdapter {
     try {
       const client = await this.getClient();
 
-      // Convert provider messages to OpenAI format
-      const openaiMessages = MessageConverter.toOpenAIFormat(messages);
+      // Convert VSCode messages to OpenAI format
+      const { messages: openaiMessages } = MessageConverter.toOpenAIFormat(messages);
 
       this.log(`Converted ${openaiMessages.length} messages for OpenAI`);
 

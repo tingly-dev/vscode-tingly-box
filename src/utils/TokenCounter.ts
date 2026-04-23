@@ -4,7 +4,6 @@
  */
 
 import * as vscode from 'vscode';
-import type { ProviderMessage } from '../types/index.js';
 
 /**
  * Utility class for estimating token counts
@@ -24,21 +23,6 @@ export class TokenCounter {
     }
     // Rough estimate: ~4 characters per token for English text
     return Math.ceil(text.length / 4);
-  }
-
-  /**
-   * Estimate tokens for a message array
-   * @param messages - Array of provider messages
-   * @returns Total estimated token count
-   */
-  static estimateMessages(messages: ProviderMessage[]): number {
-    return messages.reduce((total, msg) => {
-      const content =
-        typeof msg.content === 'string'
-          ? msg.content
-          : JSON.stringify(msg.content);
-      return total + TokenCounter.estimate(content);
-    }, 0);
   }
 
   /**

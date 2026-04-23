@@ -5,7 +5,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import type { ChatOptions, ModelInfo, ProviderMessage, ResponsePart } from '../../types/index.js';
+import * as vscode from 'vscode';
+import type { ChatOptions, ModelInfo, ResponsePart } from '../../types/index.js';
 import { MessageConverter } from '../../utils/MessageConverter.js';
 import { buildApiUrl } from '../../utils/UrlHelper.js';
 import { BaseAPIAdapter, OpenAIModelsResponse } from './BaseAPIAdapter.js';
@@ -108,7 +109,7 @@ export class AnthropicAdapter extends BaseAPIAdapter {
    */
   async chat(
     model: string,
-    messages: ProviderMessage[],
+    messages: readonly vscode.LanguageModelChatRequestMessage[],
     options: ChatOptions,
     onPart: (part: ResponsePart) => void,
     signal: AbortSignal
@@ -133,13 +134,13 @@ export class AnthropicAdapter extends BaseAPIAdapter {
     try {
       const client = await this.getClient();
 
-      // Convert provider messages to Anthropic format
-      const anthropicMessages = MessageConverter.toAnthropicFormat(messages);
+      // Convert VSCode messages to Anthropic format
+      const { messages: anthropicMessages, systemMessage } = MessageConverter.toAnthropicFormat(messages);
 
       this.log(`Converted ${anthropicMessages.length} messages for Anthropic`);
 
-      // Extract system message
-      const [systemMessage] = MessageConverter.extractSystemMessage(messages);
+      // System message is handled separately by Anthropic
+      const system = systemMessage || undefined;
 
       // Prepare tools
       let tools: Array<{ name: string; description: string; input_schema: any }> | undefined;
@@ -168,7 +169,7 @@ export class AnthropicAdapter extends BaseAPIAdapter {
         {
           model: modelName,
           messages: anthropicMessages as any,
-          system: systemMessage || undefined,
+          system: system,
           temperature: options.temperature ?? 0.7,
           max_tokens: options.maxTokens || 8192,
           stop_sequences: options.stop,

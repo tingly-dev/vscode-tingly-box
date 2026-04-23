@@ -3,7 +3,8 @@
  * Switches between OpenAI and Anthropic implementations based on configuration
  */
 
-import type { ModelInfo, ProviderMessage, ChatOptions, ResponsePart } from '../../types/index.js';
+import * as vscode from 'vscode';
+import type { ModelInfo, ChatOptions, ResponsePart } from '../../types/index.js';
 import { BaseProviderAdapter } from '../BaseProvider.js';
 import { ConfigManager } from '../../config/ConfigManager.js';
 import { OpenAIAdapter } from './OpenAIAdapter.js';
@@ -78,7 +79,7 @@ export class UnifiedAdapter extends BaseProviderAdapter {
    */
   async chat(
     model: string,
-    messages: ProviderMessage[],
+    messages: readonly vscode.LanguageModelChatRequestMessage[],
     options: ChatOptions,
     onPart: (part: ResponsePart) => void,
     signal: AbortSignal
@@ -126,21 +127,5 @@ export class UnifiedAdapter extends BaseProviderAdapter {
     // This is handled by the actual adapters (OpenAI/Anthropic)
     // Not used in unified adapter since we delegate all operations
     return true;
-  }
-
-  protected formatRequest(
-    _model: string,
-    _messages: ProviderMessage[],
-    _options: ChatOptions
-  ): Record<string, unknown> {
-    // This is handled by the actual adapters (OpenAI/Anthropic)
-    // Not used in unified adapter since we delegate all operations
-    return {};
-  }
-
-  protected parseChunk(_chunk: string): string | null {
-    // This is handled by the actual adapters (OpenAI/Anthropic)
-    // Not used in unified adapter since we delegate all operations
-    return null;
   }
 }

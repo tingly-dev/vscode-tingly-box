@@ -1,35 +1,46 @@
 /**
  * Message format converter
- * Converts between VSCode Language Model Chat format and provider-specific formats
+ * Converts between VSCode Language Model Chat format and provider SDK formats
  */
 
 import * as vscode from 'vscode';
-import type {
-  ProviderMessage,
-  OpenAIMessage,
-  TextPart,
-  ToolCallPart,
-  ToolResultPart
-} from '../types/index.js';
 
 /**
  * Utility class for converting message formats
  */
 export class MessageConverter {
   /**
-   * Convert VSCode messages to provider-agnostic format
+   * Convert VSCode messages to OpenAI format
    * @param messages - VSCode chat request messages
-   * @returns Array of provider messages
+   * @param includeSystemMessage - Whether to include system messages (default: false)
+   * @returns OpenAI-compatible messages and optional system message
    */
-  static toProviderMessages(
-    messages: readonly vscode.LanguageModelChatRequestMessage[]
-  ): ProviderMessage[] {
-    return messages.map((msg) => {
+  static toOpenAIFormat(
+    messages: readonly vscode.LanguageModelChatRequestMessage[],
+    includeSystemMessage: boolean = false
+  ): { messages: OpenAIMessage[]; systemMessage?: string } {
+    const openaiMessages: OpenAIMessage[] = [];
+    let systemMessage: string | undefined;
+
+    for (const msg of messages) {
       const role = msg.role === vscode.LanguageModelChatMessageRole.User
         ? 'user'
         : 'assistant';
 
       const content = msg.content as readonly vscode.LanguageModelInputPart[];
+
+      // Check for system message (via metadata or special marker)
+      const metadata = (msg as any).metadata;
+      if (metadata?.role === 'system' || metadata?.__system__) {
+        const systemContent = this.extractContent(content);
+        if (systemContent) {
+          systemMessage = systemContent;
+        }
+        if (includeSystemMessage) {
+          openaiMessages.push({ role: 'system', content: systemContent });
+        }
+        continue;
+      }
 
       // Check for tool result parts (from VSCode after tool execution)
       const toolResults = content.filter(
@@ -39,20 +50,22 @@ export class MessageConverter {
 
       if (toolResults.length > 0) {
         // VSCode sends tool results as user messages with ToolResultPart
-        // Convert to provider tool result format
-        return {
-          role: 'user',
-          content: toolResults.map(tr => ({
-            type: 'tool_result' as const,
-            id: tr.callId,
-            content: tr.content.map(c => {
-              if (c instanceof vscode.LanguageModelTextPart) {
-                return c.value;
-              }
-              return '';
-            }).join(''),
-          })),
-        };
+        // Convert to OpenAI tool message format
+        for (const tr of toolResults) {
+          const toolContent = tr.content.map(c => {
+            if (c instanceof vscode.LanguageModelTextPart) {
+              return c.value;
+            }
+            return '';
+          }).join('');
+
+          openaiMessages.push({
+            role: 'tool',
+            tool_call_id: tr.callId,
+            content: toolContent,
+          });
+        }
+        continue;
       }
 
       // Check for tool call parts (from previous assistant messages)
@@ -62,71 +75,135 @@ export class MessageConverter {
       );
 
       if (toolCalls.length > 0) {
-        return {
+        const openaiMessage: OpenAIMessage = {
           role: 'assistant',
-          content: toolCalls.map(tc => ({
-            type: 'tool_call' as const,
-            id: tc.callId,
-            name: tc.name,
-            arguments: typeof tc.input === 'object' ? tc.input as Record<string, unknown> : {},
-          })),
+          content: '',
         };
+
+        openaiMessage.tool_calls = toolCalls.map(tc => ({
+          id: tc.callId,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments: typeof tc.input === 'object' ? JSON.stringify(tc.input) : '{}',
+          },
+        }));
+
+        // Add any text content
+        const textContent = this.extractContent(content);
+        if (textContent) {
+          openaiMessage.content = textContent;
+        }
+
+        openaiMessages.push(openaiMessage);
+        continue;
       }
 
       // Regular text message
-      return {
+      const textContent = this.extractContent(content);
+      openaiMessages.push({
         role,
-        content: MessageConverter.extractContent(content),
-      };
-    });
+        content: textContent,
+      });
+    }
+
+    return { messages: openaiMessages, systemMessage };
   }
 
   /**
-   * Convert provider messages to OpenAI format
-   * @param messages - Provider messages
-   * @returns OpenAI-compatible messages
+   * Convert VSCode messages to Anthropic format
+   * @param messages - VSCode chat request messages
+   * @returns Anthropic-compatible messages and optional system message
    */
-  static toOpenAIFormat(messages: ProviderMessage[]): OpenAIMessage[] {
-    return messages.map((msg) => {
-      const result: OpenAIMessage = {
-        role: msg.role,
-      };
+  static toAnthropicFormat(
+    messages: readonly vscode.LanguageModelChatRequestMessage[]
+  ): { messages: AnthropicMessage[]; systemMessage?: string } {
+    const anthropicMessages: AnthropicMessage[] = [];
+    let systemMessage: string | undefined;
 
-      if (typeof msg.content === 'string') {
-        result.content = msg.content;
-      } else if (Array.isArray(msg.content)) {
-        // Check if this is a tool result message
-        const toolResult = msg.content.find((part): part is ToolResultPart => part.type === 'tool_result');
-        if (toolResult) {
-          result.role = 'tool';
-          result.tool_call_id = toolResult.id;
-          result.content = typeof toolResult.content === 'string'
-            ? toolResult.content
-            : toolResult.content.map(p => p.text).join('');
-        } else {
-          // Handle tool calls
-          const toolCalls = msg.content.filter((part): part is ToolCallPart => part.type === 'tool_call');
-          if (toolCalls.length > 0) {
-            result.tool_calls = toolCalls.map(tc => ({
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments: JSON.stringify(tc.arguments),
-              },
-            }));
-          }
+    for (const msg of messages) {
+      const role = msg.role === vscode.LanguageModelChatMessageRole.User
+        ? 'user'
+        : 'assistant';
 
-          // Handle text content
-          const textParts = msg.content.filter((part): part is TextPart => part.type === 'text');
-          if (textParts.length > 0) {
-            result.content = textParts.map(part => part.text).join('');
-          }
+      const content = msg.content as readonly vscode.LanguageModelInputPart[];
+
+      // Check for system message (via metadata or special marker)
+      const metadata = (msg as any).metadata;
+      if (metadata?.role === 'system' || metadata?.__system__) {
+        const systemContent = this.extractContent(content);
+        if (systemContent) {
+          systemMessage = systemContent;
         }
+        continue; // Anthropic uses system parameter, not messages array
       }
 
-      return result;
-    });
+      // Check for tool result parts
+      const toolResults = content.filter(
+        (part): part is vscode.LanguageModelToolResultPart =>
+          part instanceof vscode.LanguageModelToolResultPart
+      );
+
+      // Check for tool call parts
+      const toolCalls = content.filter(
+        (part): part is vscode.LanguageModelToolCallPart =>
+          part instanceof vscode.LanguageModelToolCallPart
+      );
+
+      if (toolCalls.length > 0 || toolResults.length > 0) {
+        // Complex content with tools - use array format
+        const contentParts: AnthropicContentPart[] = [];
+
+        // Add text content
+        const textContent = this.extractContent(content);
+        if (textContent) {
+          contentParts.push({ type: 'text', text: textContent });
+        }
+
+        // Add tool calls
+        for (const tc of toolCalls) {
+          contentParts.push({
+            type: 'tool_use',
+            id: tc.callId,
+            name: tc.name,
+            input: typeof tc.input === 'object' ? tc.input : {},
+          });
+        }
+
+        // Add tool results
+        for (const tr of toolResults) {
+          const resultContent = tr.content.map(c => {
+            if (c instanceof vscode.LanguageModelTextPart) {
+              return c.value;
+            }
+            return '';
+          }).join('');
+
+          contentParts.push({
+            type: 'tool_result',
+            tool_use_id: tr.callId,
+            content: resultContent,
+          });
+        }
+
+        anthropicMessages.push({
+          role,
+          content: contentParts,
+        });
+        continue;
+      }
+
+      // Regular text message - use string content for simplicity
+      const textContent = this.extractContent(content);
+      if (textContent) {
+        anthropicMessages.push({
+          role,
+          content: textContent,
+        });
+      }
+    }
+
+    return { messages: anthropicMessages, systemMessage };
   }
 
   /**
@@ -144,111 +221,66 @@ export class MessageConverter {
   }
 
   /**
-   * Convert a single text string to provider message
+   * Convert a single text string to a simple message object
    * @param text - The text content
    * @param role - The message role
-   * @returns Provider message
+   * @returns Simple message object
    */
-  static textToMessage(text: string, role: 'user' | 'assistant' = 'user'): ProviderMessage {
+  static textToMessage(text: string, role: 'user' | 'assistant' = 'user'): { role: string; content: string } {
     return {
       role,
       content: text,
     };
   }
+}
 
-  /**
-   * Extract system message from messages array
-   * @param messages - Provider messages
-   * @returns Tuple of [systemMessage, remainingMessages]
-   */
-  static extractSystemMessage(messages: ProviderMessage[]): [string | null, ProviderMessage[]] {
-    const systemMsg = messages.find(msg => msg.role === 'system');
-    const remaining = messages.filter(msg => msg.role !== 'system');
+/**
+ * OpenAI message format
+ */
+export interface OpenAIMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+  tool_call_id?: string;
+}
 
-    let systemContent: string | null = null;
-    if (systemMsg) {
-      if (typeof systemMsg.content === 'string') {
-        systemContent = systemMsg.content;
-      } else if (Array.isArray(systemMsg.content)) {
-        const textParts = systemMsg.content.filter((part): part is TextPart => part.type === 'text');
-        systemContent = textParts.map(p => p.text).join('\n');
-      }
-    }
+/**
+ * Anthropic message format
+ */
+export interface AnthropicMessage {
+  role: 'user' | 'assistant';
+  content: string | AnthropicContentPart[];
+}
 
-    return [systemContent, remaining];
-  }
+/**
+ * Anthropic content part types
+ */
+export type AnthropicContentPart =
+  | AnthropicTextBlock
+  | AnthropicToolUseBlock
+  | AnthropicToolResultBlock;
 
-  /**
-   * Convert provider messages to Anthropic format
-   * @param messages - Provider messages (without system messages)
-   * @returns Anthropic-compatible messages
-   */
-  static toAnthropicFormat(messages: ProviderMessage[]): Array<{
-    role: string;
-    content: string | Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
-  }> {
-    const result: Array<{
-      role: string;
-      content: string | Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
-    }> = [];
+export interface AnthropicTextBlock {
+  type: 'text';
+  text: string;
+}
 
-    for (const msg of messages) {
-      if (typeof msg.content === 'string') {
-        // Simple text message - use string content
-        result.push({
-          role: msg.role,
-          content: msg.content,
-        });
-      } else if (Array.isArray(msg.content)) {
-        // Check for tool calls and tool results (these require array format)
-        const toolCalls = msg.content.filter((part): part is ToolCallPart => part.type === 'tool_call');
-        const toolResults = msg.content.filter((part): part is ToolResultPart => part.type === 'tool_result');
-        const hasToolParts = toolCalls.length > 0 || toolResults.length > 0;
+export interface AnthropicToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: unknown;
+}
 
-        // Extract text parts
-        const textParts = msg.content.filter((part): part is TextPart => part.type === 'text');
-
-        if (hasToolParts) {
-          // Complex content with tool calls or results - use array format
-          const content: any[] = [];
-
-          for (const part of msg.content) {
-            if (part.type === 'text') {
-              content.push({ type: 'text', text: part.text });
-            } else if (part.type === 'tool_call') {
-              content.push({
-                type: 'tool_use',
-                id: part.id,
-                name: part.name,
-                input: part.arguments,
-              });
-            } else if (part.type === 'tool_result') {
-              content.push({
-                type: 'tool_result',
-                tool_use_id: part.id,
-                content: typeof part.content === 'string'
-                  ? part.content
-                  : part.content.map(p => p.text).join(''),
-              });
-            }
-            // Ignore other part types (images, etc.)
-          }
-
-          result.push({
-            role: msg.role,
-            content,
-          });
-        } else if (textParts.length > 0) {
-          // Only text parts (maybe mixed with ignored types like images) - concatenate to string with newline
-          const combinedText = textParts.map(p => p.text).join('\n');
-          result.push({
-            role: msg.role,
-            content: combinedText,
-          });
-        }
-      }
-    }
-
-    return result;
-  }
+export interface AnthropicToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content?: string;
 }

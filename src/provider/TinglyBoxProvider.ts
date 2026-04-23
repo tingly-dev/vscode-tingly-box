@@ -144,11 +144,8 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
         );
       }
 
-      // Convert messages to provider format
-      const providerMessages = MessageConverter.toProviderMessages(messages);
-
       this.output.appendLine(
-        `[Chat] Processing ${providerMessages.length} messages`
+        `[Chat] Processing ${messages.length} messages`
       );
 
       // Convert VSCode tools to internal Tool format
@@ -174,7 +171,7 @@ export class TinglyBoxProvider implements vscode.LanguageModelChatProvider {
       // Call the provider's chat method
       await provider.chat(
         model.id,
-        providerMessages,
+        messages,
         {
           // VSCode doesn't provide tokenOptions in the current API version
           // Use default temperature for now
