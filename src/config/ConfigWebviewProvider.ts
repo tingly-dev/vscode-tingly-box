@@ -187,6 +187,7 @@ export class ConfigWebviewProvider {
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
+                retainContextWhenHidden: true,
                 localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')]
             }
         );
@@ -502,7 +503,8 @@ export class ConfigWebviewProvider {
             let opened = false;
             for (const cmd of commandsToTry) {
                 try {
-                    await vscode.commands.executeCommand(cmd, tinglyBoxUrl);
+                    // Open beside the config panel to avoid clobbering it
+                    await vscode.commands.executeCommand(cmd, tinglyBoxUrl, { viewColumn: vscode.ViewColumn.Beside });
                     opened = true;
                     break;
                 } catch {
