@@ -185,49 +185,67 @@ export class MessageConverter {
    */
   static toAnthropicFormat(messages: ProviderMessage[]): Array<{
     role: string;
-    content: Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
+    content: string | Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
   }> {
     const result: Array<{
       role: string;
-      content: Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
+      content: string | Array<{ type: string; text?: string; tool_use_id?: string; content?: string } | { type: string; id?: string; name?: string; input?: any }>;
     }> = [];
 
     for (const msg of messages) {
       if (typeof msg.content === 'string') {
-        // Simple text message
+        // Simple text message - use string content
         result.push({
           role: msg.role,
-          content: [{ type: 'text', text: msg.content }],
+          content: msg.content,
         });
       } else if (Array.isArray(msg.content)) {
-        // Complex content with tool calls or results
-        const content: any[] = [];
+        // Check for tool calls and tool results (these require array format)
+        const toolCalls = msg.content.filter((part): part is ToolCallPart => part.type === 'tool_call');
+        const toolResults = msg.content.filter((part): part is ToolResultPart => part.type === 'tool_result');
+        const hasToolParts = toolCalls.length > 0 || toolResults.length > 0;
 
-        for (const part of msg.content) {
-          if (part.type === 'text') {
-            content.push({ type: 'text', text: part.text });
-          } else if (part.type === 'tool_call') {
-            content.push({
-              type: 'tool_use',
-              id: part.id,
-              name: part.name,
-              input: part.arguments,
-            });
-          } else if (part.type === 'tool_result') {
-            content.push({
-              type: 'tool_result',
-              tool_use_id: part.id,
-              content: typeof part.content === 'string'
-                ? part.content
-                : part.content.map(p => p.text).join(''),
-            });
+        // Extract text parts
+        const textParts = msg.content.filter((part): part is TextPart => part.type === 'text');
+
+        if (hasToolParts) {
+          // Complex content with tool calls or results - use array format
+          const content: any[] = [];
+
+          for (const part of msg.content) {
+            if (part.type === 'text') {
+              content.push({ type: 'text', text: part.text });
+            } else if (part.type === 'tool_call') {
+              content.push({
+                type: 'tool_use',
+                id: part.id,
+                name: part.name,
+                input: part.arguments,
+              });
+            } else if (part.type === 'tool_result') {
+              content.push({
+                type: 'tool_result',
+                tool_use_id: part.id,
+                content: typeof part.content === 'string'
+                  ? part.content
+                  : part.content.map(p => p.text).join(''),
+              });
+            }
+            // Ignore other part types (images, etc.)
           }
-        }
 
-        result.push({
-          role: msg.role,
-          content,
-        });
+          result.push({
+            role: msg.role,
+            content,
+          });
+        } else if (textParts.length > 0) {
+          // Only text parts (maybe mixed with ignored types like images) - concatenate to string with newline
+          const combinedText = textParts.map(p => p.text).join('\n');
+          result.push({
+            role: msg.role,
+            content: combinedText,
+          });
+        }
       }
     }
 
