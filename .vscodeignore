@@ -1,6 +1,9 @@
+# Source & dev files
 .vscode/**
 .vscode-test/**
 src/**
+out/**
+node_modules/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -9,9 +12,13 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+esbuild.js
+pnpm-lock.yaml
+package-lock.json
 
-
-.sdlc
-.idea
-docs
+# Docs & meta
+.sdlc/**
+.idea/**
+docs/**
 CLAUDE.md
+*.vsix
